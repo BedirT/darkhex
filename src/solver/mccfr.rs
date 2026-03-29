@@ -48,12 +48,20 @@ fn regret_matching(regret_sum: &[f32], out: &mut Vec<f32>) {
 }
 
 /// Sample an index from a probability distribution.
+/// Handles floating-point rounding by sampling in [0, sum) range.
 fn sample_action(probs: &[f32], rng: &mut SmallRng) -> usize {
-    let r: f32 = rng.gen();
+    let total: f32 = probs.iter().sum();
+    let r: f32 = rng.gen::<f32>() * total;
     let mut cum = 0.0;
     for (i, &p) in probs.iter().enumerate() {
         cum += p;
         if r < cum {
+            return i;
+        }
+    }
+    // Fallback: return last nonzero-probability index
+    for i in (0..probs.len()).rev() {
+        if probs[i] > 0.0 {
             return i;
         }
     }
@@ -91,10 +99,11 @@ impl MCCFRSolver {
         epsilon: Option<f32>,
         seed: Option<u64>,
     ) -> PyResult<Self> {
+        let sampling_mode = sampling.unwrap_or(Sampling::Outcome);
         let eps = epsilon.unwrap_or(0.6);
-        if !(0.0 < eps && eps <= 1.0) {
+        if sampling_mode == Sampling::Outcome && !(0.0 < eps && eps <= 1.0) {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "epsilon must be in (0, 1]",
+                "epsilon must be in (0, 1] for Outcome Sampling",
             ));
         }
         Ok(Self {
@@ -102,7 +111,7 @@ impl MCCFRSolver {
             iterations: 0,
             rows,
             cols,
-            sampling: sampling.unwrap_or(Sampling::Outcome),
+            sampling: sampling_mode,
             epsilon: eps,
             rng: SmallRng::seed_from_u64(seed.unwrap_or(42)),
         })

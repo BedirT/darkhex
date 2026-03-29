@@ -73,10 +73,18 @@ fn outcome_3x3_runs() {
 }
 
 #[test]
-fn epsilon_validation() {
-    assert!(MCCFRSolver::new(2, 2, None, Some(0.0), None).is_err());
-    assert!(MCCFRSolver::new(2, 2, None, Some(-0.1), None).is_err());
-    assert!(MCCFRSolver::new(2, 2, None, Some(1.1), None).is_err());
-    assert!(MCCFRSolver::new(2, 2, None, Some(0.6), None).is_ok());
-    assert!(MCCFRSolver::new(2, 2, None, Some(1.0), None).is_ok());
+fn epsilon_validation_outcome() {
+    // Outcome Sampling validates epsilon
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.0), None).is_err());
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(-0.1), None).is_err());
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(1.1), None).is_err());
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), None).is_ok());
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(1.0), None).is_ok());
+}
+
+#[test]
+fn epsilon_ignored_for_external() {
+    // External Sampling ignores epsilon — any value accepted
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), Some(0.0), None).is_ok());
+    assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), None, None).is_ok());
 }

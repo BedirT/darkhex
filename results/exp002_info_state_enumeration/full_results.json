@@ -2,45 +2,33 @@
   {
     "board": "2x2",
     "total_info_states": 42,
-    "p0": 17,
-    "p1": 25,
-    "terminals": 216,
-    "max_depth": 7,
-    "time_s": 0.001,
-    "thesis_ir": 42,
-    "match": "MATCH"
+    "p0_info_states": 17,
+    "p1_info_states": 25,
+    "terminal_states": 216,
+    "max_depth": 7
   },
   {
     "board": "2x3",
     "total_info_states": 314,
-    "p0": 147,
-    "p1": 167,
-    "terminals": 53920,
-    "max_depth": 11,
-    "time_s": 0.119,
-    "thesis_ir": "N/A",
-    "match": "NEW"
+    "p0_info_states": 147,
+    "p1_info_states": 167,
+    "terminal_states": 53920,
+    "max_depth": 11
   },
   {
     "board": "3x2",
     "total_info_states": 410,
-    "p0": 172,
-    "p1": 238,
-    "terminals": 95760,
-    "max_depth": 11,
-    "time_s": 0.229,
-    "thesis_ir": 410,
-    "match": "MATCH"
+    "p0_info_states": 172,
+    "p1_info_states": 238,
+    "terminal_states": 95760,
+    "max_depth": 11
   },
   {
     "board": "3x3",
     "total_info_states": 12556,
-    "p0": 6293,
-    "p1": 6263,
-    "terminals": 9469697760,
-    "max_depth": 17,
-    "time_s": 22365.66,
-    "thesis_ir": 12556,
-    "match": "MATCH"
+    "p0_info_states": 6293,
+    "p1_info_states": 6263,
+    "terminal_states": 9469697760,
+    "max_depth": 17
   }
 ]

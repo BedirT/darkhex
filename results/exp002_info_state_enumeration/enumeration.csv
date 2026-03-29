@@ -1,5 +1,5 @@
-board,total_info_states,p0,p1,terminals,max_depth,time_s,thesis_ir,match
-2x2,42,17,25,216,7,0.001,42,MATCH
-2x3,314,147,167,53920,11,0.119,N/A,NEW
-3x2,410,172,238,95760,11,0.229,410,MATCH
-3x3,12556,6293,6263,9469697760,17,22365.66,12556,MATCH
+board,total_info_states,p0_info_states,p1_info_states,terminal_states,max_depth
+2x2,42,17,25,216,7
+2x3,314,147,167,53920,11
+3x2,410,172,238,95760,11
+3x3,12556,6293,6263,9469697760,17

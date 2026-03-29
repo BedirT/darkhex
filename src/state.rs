@@ -274,6 +274,100 @@ impl DarkHexState {
     }
 }
 
+/// Rust-native methods for internal use (no PyO3 overhead).
+/// These are the hot-path methods called by MCCFR traversal.
+impl DarkHexState {
+    pub fn rs_new(rows: usize, cols: usize) -> Self {
+        Self {
+            board: HexBoard::new(rows, cols),
+            player_views: [vec![None; rows * cols], vec![None; rows * cols]],
+            action_histories: [Vec::new(), Vec::new()],
+            current_player: Player::Black,
+            stones_placed: 0,
+            cached_winner: None,
+            collision_rule: CollisionRule::Classic,
+            collision_info: CollisionInfo::Silent,
+        }
+    }
+
+    #[inline]
+    pub fn rs_current_player(&self) -> Player {
+        self.current_player
+    }
+
+    #[inline]
+    pub fn rs_is_terminal(&self) -> bool {
+        self.cached_winner.is_some()
+    }
+
+    #[inline]
+    pub fn rs_player_return(&self, player: Player) -> f32 {
+        match self.cached_winner {
+            Some(p) if p == player => 1.0,
+            Some(_) => -1.0,
+            None => 0.0,
+        }
+    }
+
+    pub fn rs_legal_actions(&self, buf: &mut Vec<usize>) {
+        buf.clear();
+        let pi = self.current_player.index();
+        for (i, v) in self.player_views[pi].iter().enumerate() {
+            if v.is_none() {
+                buf.push(i);
+            }
+        }
+    }
+
+    /// Apply action without validation. Returns true if placed, false if collision.
+    pub fn rs_apply_action(&mut self, action: usize) -> bool {
+        let player = self.current_player;
+        let pi = player.index();
+        self.action_histories[pi].push(action);
+
+        if self.board.place_stone(action, player) {
+            self.player_views[pi][action] = Some(Cell::from_player(player));
+            self.cached_winner = self.board.winner();
+            self.stones_placed += 1;
+            self.current_player = Player::from_index(self.stones_placed % 2);
+            true
+        } else {
+            self.player_views[pi][action] =
+                Some(Cell::from_player(player.opponent()));
+            match self.collision_rule {
+                CollisionRule::Classic => {}
+                CollisionRule::Abrupt => {
+                    self.stones_placed += 1;
+                    self.current_player =
+                        Player::from_index(self.stones_placed % 2);
+                }
+            }
+            false
+        }
+    }
+
+    pub fn rs_info_state_string(&self, player: Player) -> String {
+        let pi = player.index();
+        let mut s = String::with_capacity(3 + self.board.size() + self.board.rows);
+        s.push('P');
+        s.push(char::from(b'0' + pi as u8));
+        s.push('\n');
+        for row in 0..self.board.rows {
+            if row > 0 {
+                s.push('\n');
+            }
+            for col in 0..self.board.cols {
+                let pos = row * self.board.cols + col;
+                s.push(match self.player_views[pi][pos] {
+                    None => '.',
+                    Some(c) => c.to_char(),
+                });
+            }
+        }
+        s
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

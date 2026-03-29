@@ -3,6 +3,7 @@ mod solver;
 
 use pyo3::prelude::*;
 
+use game::enumerate::{enumerate_game_tree, GameTreeStats};
 use game::state::DarkHexState;
 use game::types::{CollisionInfo, CollisionRule, Player};
 use solver::mccfr::{MCCFRSolver, Sampling};
@@ -17,5 +18,7 @@ fn _engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DarkHexState>()?;
     m.add_class::<Sampling>()?;
     m.add_class::<MCCFRSolver>()?;
+    m.add_class::<GameTreeStats>()?;
+    m.add_function(wrap_pyfunction!(enumerate_game_tree, m)?)?;
     Ok(())
 }

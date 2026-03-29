@@ -4,50 +4,56 @@
 Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
-- Date: 2026-03-28
-- Implemented Rust game engine (CDH + all 4 variants) + External Sampling MCCFR
-- Investigated results on 2x2/3x2/3x3: External Sampling too slow for 3x3 (7 iters/s)
-- Root cause: tries all actions at update player nodes → exponential branching
-- Also: misses info states behind zero-probability actions (39 vs 42 on 2x2)
-- Both issues resolved by Outcome Sampling MCCFR → implementing now
+- Date: 2026-03-28/29
+- Built Rust game engine, MCCFR (External + Outcome Sampling), exhaustive enumeration
+- Found and fixed 3 OS-MCCFR importance weight bugs via PR review + literature verification
+- Memoized enumeration: 7,000x speedup, 4x3 now feasible (8.5min)
+- All 4 thesis info state counts independently confirmed + 2 new board sizes
+- PR #18 open: feature/outcome-sampling → re-dev (9 commits, 76 tests)
 
-## Completed (recent)
+## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
-- [x] External Sampling MCCFR in pure Rust (no PyO3 in hot loop)
-- [x] Verified 2x2 (39 info states, converges by 1k), 3x2 (385, ~800 iters/s)
-- [x] Identified External Sampling limitation on 3x3 (7 iters/s, missing info states)
+- [x] External Sampling MCCFR (pure Rust, no PyO3 in hot loop)
+- [x] Outcome Sampling MCCFR (corrected per OpenSpiel, 2,300x faster on 3x3)
+- [x] Exhaustive info state enumeration with memoization
+- [x] Ground truth: 2x2=42, 2x3=314, 3x2=410, 3x3=12,556, 4x3=367,919, 3x4=341,033
+- [x] Experiment framework: experiments/ + results/ with CSV/JSON
+- [x] EXP-001: MCCFR convergence verification
+- [x] EXP-002: Info state enumeration (all thesis values confirmed)
+- [x] src/ restructured: game/ + solver/ with separate test files
 - [x] Architecture: Rust for tabular algos + VecEnv, Python for neural
-- [x] Memory optimization as hard constraint (f32, integer keys, lazy alloc)
-- [x] Obsidian project KB + full documentation (ARCHITECTURE, DECISIONS, algorithm docs)
-- [x] Harness: init.sh, hooks, rules, git branching strategy (re-dev → feature/)
-- [x] Thesis deep-dive + literature survey (ReBeL, AlphaZe**, Deep CFR, etc.)
+- [x] Obsidian project KB with Experiments/ and Results/ notes
+- [x] Harness: init.sh, AGENTS.md (git workflow, reasoning chains), hooks, rules
+- [x] 76 tests (30 Rust + 46 Python), all passing
 
-## In Progress
-- [ ] Outcome Sampling MCCFR (feature/outcome-sampling branch)
-  - O(depth) per iteration instead of O(branching^depth)
-  - Epsilon-greedy exploration ensures full info state coverage
-  - Should hit thesis numbers: 42 (2x2), 410 (3x2), 12,556 (3x3)
+## Open PR
+- #18: feature/outcome-sampling → re-dev (9 commits, 18 review comments addressed)
 
 ## Up Next
-- [ ] Exploitability / best response computation
-- [ ] Verify MCCFR on 2x2 against known Nash equilibrium
-- [ ] SIP/SIP+ policy simplification
-- [ ] pONE sure-win state database
-- [ ] VecEnv for batched game stepping
+- [ ] Exploitability / best response computation (needed to verify Nash convergence)
+- [ ] Verify MCCFR strategies against exploitability on 2x2
+- [ ] SIP/SIP+ policy simplification (thesis novel contribution)
+- [ ] pONE sure-win state database (20% memory savings on 4x3)
+- [ ] Isomorphic state reduction (~halves info state count)
+- [ ] Run MCCFR on 4x3 (367,919 info states — the thesis headline board)
 - [ ] Deep CFR or ReBeL prototype
 
 ## Decisions Made
-- CDH is the default Dark Hex variant — player retries after collision (2026-03-28)
-- External Sampling MCCFR: too slow for 3x3 → need Outcome Sampling (2026-03-28)
-- Info state gap (39 vs 42) caused by zero-prob actions in External Sampling (2026-03-28)
-- Rust for tabular algos, Python for neural (via VecEnv batching) (2026-03-28)
-- Memory is a hard constraint: f32 regrets, lazy alloc, pONE pruning (2026-03-28)
-- Git: re-dev = develop, feature branches PR back, reasoning-chain commits (2026-03-28)
-- Thesis algorithms: MCCFR, NFSP, SIP/SIP+, pONE, Ab-BR, ABR (2026-03-28)
-- Top candidates beyond thesis: ReBeL, AlphaZe**, Deep CFR, R-NaD (2026-03-28)
+- CDH default, all 4 variants supported (2026-03-28)
+- External → Outcome Sampling (External too slow for 3x3) (2026-03-28)
+- OS-MCCFR corrected: epsilon only at update player, raw utility at terminal (2026-03-29)
+- Memoized enumeration: full game state key for dedup (2026-03-29)
+- Rust for tabular algos, Python for neural via VecEnv batching (2026-03-28)
+- Memory is hard constraint: f32, lazy alloc, pONE, isomorphic (2026-03-28)
+- Git: re-dev = develop, feature branches PR back (2026-03-28)
+- No AI co-author in commits (2026-03-28)
+- Rust tests in separate _tests.rs files, never inline (2026-03-28)
+- src/ organized: game/ (foundation) + solver/ (algorithms) (2026-03-28)
 
 ## Failed Approaches
-- External Sampling MCCFR on 3x3: 7 iters/s, exponential in branching factor
+- External Sampling on 3x3: 7 iters/s, exponential in branching factor
+- OS-MCCFR with epsilon at all nodes: biased importance weights (3 bugs)
+- Naive DFS enumeration: 6.2h on 3x3 (9.47B terminals)
 
 ## Blockers
 - None

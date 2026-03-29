@@ -1,0 +1,16 @@
+[package]
+name = "darkhex-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Rust game engine core for Dark Hex"
+license = "MIT"
+
+[lib]
+name = "_engine"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+pyo3 = "0.23"
+
+[features]
+extension-module = ["pyo3/extension-module"]

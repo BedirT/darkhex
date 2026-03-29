@@ -1,0 +1,60 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "darkhex"
+version = "0.1.0"
+description = "Research toolkit for solving Dark Hex using game-theoretic algorithms"
+authors = [{ name = "Bedir Tapkan", email = "tapkan@ualberta.ca" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Games/Entertainment :: Board Games",
+]
+dependencies = [
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "hypothesis>=6.0",
+    "ruff>=0.4",
+    "pyright>=1.1",
+]
+
+[project.optional-dependencies]
+plot = [
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+]
+viz = [
+    "nicegui>=2.0",
+]
+
+[tool.maturin]
+features = ["extension-module"]
+module-name = "darkhex._engine"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-x --tb=short"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+# Exclude legacy code — will be replaced by Rust engine + new Python algorithms
+exclude = ["darkhex/", "setup.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"

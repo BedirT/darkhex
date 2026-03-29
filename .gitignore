@@ -6,11 +6,8 @@
 .flake8
 .vscode
 .isort.cfg
-*.yaml
 
 tmp/
-build/
-venv/
 old_files/
 
 # Python
@@ -19,5 +16,20 @@ old_files/
 *.pyc
 __pycache__/
 
-# Distribution
+# Rust
+target/
+*.so
+*.dylib
+*.pyd
+
+# Build / Distribution
+build/
 dist/
+
+# Data / Docs
+internal_docs/
+darkhex/data/
+
+# Environment
+.env
+.env.*

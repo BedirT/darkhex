@@ -1,0 +1,19 @@
+{
+  "projects": {
+    "darkhex": {
+      "project_id": "darkhex",
+      "repo_roots": [
+        "/Users/bedirt/Documents/Github/darkhex"
+      ],
+      "vault_name": "ObsidianVault",
+      "vault_root": "/Users/bedirt/Documents/ObsidianVault/Research/darkhex",
+      "hub_note": "Research/darkhex/00-Hub.md",
+      "status": "active",
+      "auto_sync": true,
+      "note_language": "en",
+      "created_at": "2026-03-29T01:57:09Z",
+      "updated_at": "2026-03-29T01:57:09Z",
+      "archive_root": "/Users/bedirt/Documents/ObsidianVault/Archive"
+    }
+  }
+}

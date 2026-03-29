@@ -4,12 +4,11 @@
 Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
-- Date: 2026-03-28/29
-- Built Rust game engine, MCCFR (External + Outcome Sampling), exhaustive enumeration
-- Found and fixed 3 OS-MCCFR importance weight bugs via PR review + literature verification
-- Memoized enumeration: 7,000x speedup, 4x3 now feasible (8.5min)
-- All 4 thesis info state counts independently confirmed + 2 new board sizes
-- PR #18 open: feature/outcome-sampling → re-dev (9 commits, 76 tests)
+- Date: 2026-03-29
+- Implemented exploitability / best response computation (clairvoyant upper bound)
+- Full game tree DFS with memoization, 2x2 < 1ms, 3x3 ~3.5s
+- 2x2 convergence verified: expl 0.55 → 0.02 after 50k OS-MCCFR iters
+- 15 new tests (7 Rust + 8 Python), all 54 tests passing
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -24,14 +23,14 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] Architecture: Rust for tabular algos + VecEnv, Python for neural
 - [x] Obsidian project KB with Experiments/ and Results/ notes
 - [x] Harness: init.sh, AGENTS.md (git workflow, reasoning chains), hooks, rules
-- [x] 76 tests (30 Rust + 46 Python), all passing
+- [x] Exploitability / best response (clairvoyant upper bound, memoized DFS)
+- [x] 2x2 MCCFR convergence verified via exploitability (0.55 → 0.02 at 50k iters)
+- [x] 91 tests (37 Rust + 54 Python), all passing
 
 ## Open PR
-- #18: feature/outcome-sampling → re-dev (9 commits, 18 review comments addressed)
+- #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
-- [ ] Exploitability / best response computation (needed to verify Nash convergence)
-- [ ] Verify MCCFR strategies against exploitability on 2x2
 - [ ] SIP/SIP+ policy simplification (thesis novel contribution)
 - [ ] pONE sure-win state database (20% memory savings on 4x3)
 - [ ] Isomorphic state reduction (~halves info state count)
@@ -39,6 +38,7 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [ ] Deep CFR or ReBeL prototype
 
 ## Decisions Made
+- Clairvoyant BR (per-state optimal) for exploitability — upper bound, tight for converged strategies (2026-03-29)
 - CDH default, all 4 variants supported (2026-03-28)
 - External → Outcome Sampling (External too slow for 3x3) (2026-03-28)
 - OS-MCCFR corrected: epsilon only at update player, raw utility at terminal (2026-03-29)

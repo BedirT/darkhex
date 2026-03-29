@@ -80,6 +80,7 @@ def main():
             break
 
     # Save CSV
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = RESULTS_DIR / "enumeration.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(records[0].keys()))

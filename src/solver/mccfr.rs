@@ -90,16 +90,22 @@ impl MCCFRSolver {
         sampling: Option<Sampling>,
         epsilon: Option<f32>,
         seed: Option<u64>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        let eps = epsilon.unwrap_or(0.6);
+        if !(0.0 < eps && eps <= 1.0) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "epsilon must be in (0, 1]",
+            ));
+        }
+        Ok(Self {
             info_states: HashMap::new(),
             iterations: 0,
             rows,
             cols,
             sampling: sampling.unwrap_or(Sampling::Outcome),
-            epsilon: epsilon.unwrap_or(0.6),
+            epsilon: eps,
             rng: SmallRng::seed_from_u64(seed.unwrap_or(42)),
-        }
+        })
     }
 
     /// Run `n` iterations of MCCFR.
@@ -267,10 +273,16 @@ impl MCCFRSolver {
 
     // --- Outcome Sampling ---
 
-    /// Outcome Sampling MCCFR traversal.
+    /// Outcome Sampling MCCFR traversal (OpenSpiel formulation).
     ///
-    /// Samples ONE action at every node using epsilon-greedy exploration.
-    /// Returns `u_i(z) / pi_sample(z)` for the sampled terminal z.
+    /// Returns an estimate of the "tail value" at this node — the utility
+    /// weighted by tail reach/sample ratios. Raw utility at terminals,
+    /// importance-corrected value_estimate at decision nodes.
+    ///
+    /// Epsilon-greedy exploration is applied ONLY at the update player's
+    /// nodes. Opponent nodes sample from the current strategy directly.
+    ///
+    /// Reference: OpenSpiel outcome_sampling_mccfr.cc (Lanctot et al.)
     #[allow(clippy::too_many_arguments)]
     fn outcome_sampling(
         &mut self,
@@ -284,7 +296,8 @@ impl MCCFRSolver {
         q_buf: &mut Vec<f32>,
     ) -> f32 {
         if state.rs_is_terminal() {
-            return state.rs_player_return(update_player) / pi_sample;
+            // Return raw utility — weighting deferred to regret update
+            return state.rs_player_return(update_player);
         }
 
         let player = state.rs_current_player();
@@ -299,39 +312,64 @@ impl MCCFRSolver {
         let sigma: Vec<f32> = sigma_buf.clone();
         let actions: Vec<usize> = actions_buf.clone();
 
-        // Epsilon-on-policy sampling probabilities
-        let eps = self.epsilon;
-        let n = num_actions as f32;
+        // Sampling policy: epsilon-greedy at update player, sigma at opponent
+        let is_update = player == update_player;
         q_buf.clear();
-        q_buf.extend(sigma.iter().map(|&s| eps / n + (1.0 - eps) * s));
+        if is_update {
+            let eps = self.epsilon;
+            let n = num_actions as f32;
+            q_buf.extend(sigma.iter().map(|&s| eps / n + (1.0 - eps) * s));
+        } else {
+            q_buf.extend_from_slice(&sigma);
+        }
 
         let a_idx = sample_action(q_buf, &mut self.rng);
         let q_a = q_buf[a_idx];
 
+        // Thread reach probabilities
         let mut child = state.clone();
         child.rs_apply_action(actions[a_idx]);
 
-        if player == update_player {
-            let tail = self.outcome_sampling(
-                &mut child,
-                update_player,
-                pi_i * sigma[a_idx],
-                pi_opp,
-                pi_sample * q_a,
-                actions_buf,
-                sigma_buf,
-                q_buf,
-            );
+        let (new_pi_i, new_pi_opp) = if is_update {
+            (pi_i * sigma[a_idx], pi_opp)
+        } else {
+            (pi_i, pi_opp * sigma[a_idx])
+        };
+        let new_pi_sample = pi_sample * q_a;
 
-            // Counterfactual weight: pi_{-i} * u(z) / pi_s(z)
-            let w = tail * pi_opp;
+        let child_value = self.outcome_sampling(
+            &mut child,
+            update_player,
+            new_pi_i,
+            new_pi_opp,
+            new_pi_sample,
+            actions_buf,
+            sigma_buf,
+            q_buf,
+        );
 
+        // Importance-corrected child value for the sampled action
+        // For unsampled actions, child_values[a] = 0 (vanilla baseline)
+        let child_value_corrected = child_value / q_a;
+
+        // value_estimate = sum_a sigma[a] * child_values[a]
+        // Only sampled action contributes (others have baseline 0)
+        let value_estimate = sigma[a_idx] * child_value_corrected;
+
+        if is_update {
+            // Counterfactual value = value_estimate * opp_reach / sample_reach
+            let cf_prefix = pi_opp / pi_sample;
+            let cf_value = value_estimate * cf_prefix;
+            let cf_action_value = child_value_corrected * cf_prefix;
+
+            // Regret: r(I, a) += cf_action_value(a) - cf_value
             let data = self.info_states.get_mut(&info_key).unwrap();
             for i in 0..num_actions {
                 if i == a_idx {
-                    data.regret_sum[i] += w * (1.0 - sigma[a_idx]);
+                    data.regret_sum[i] += cf_action_value - cf_value;
                 } else {
-                    data.regret_sum[i] -= w * sigma[i];
+                    // Unsampled actions have cf_action_value = 0
+                    data.regret_sum[i] -= cf_value;
                 }
             }
 
@@ -340,20 +378,9 @@ impl MCCFRSolver {
             for i in 0..num_actions {
                 data.strategy_sum[i] += strat_weight * sigma[i];
             }
-
-            tail * sigma[a_idx]
-        } else {
-            self.outcome_sampling(
-                &mut child,
-                update_player,
-                pi_i,
-                pi_opp * sigma[a_idx],
-                pi_sample * q_a,
-                actions_buf,
-                sigma_buf,
-                q_buf,
-            )
         }
+
+        value_estimate
     }
 }
 

@@ -84,6 +84,7 @@ def main():
     )
 
     # Save CSV (machine-readable, for plots)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = RESULTS_DIR / "convergence.csv"
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(

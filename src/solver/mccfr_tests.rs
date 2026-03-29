@@ -22,7 +22,7 @@ fn regret_matching_positive_only() {
 
 #[test]
 fn external_runs() {
-    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::External), None, Some(42));
+    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::External), None, Some(42)).unwrap();
     solver.solve(100);
     assert_eq!(solver.iterations(), 100);
     assert!(solver.num_info_states() > 0);
@@ -30,7 +30,7 @@ fn external_runs() {
 
 #[test]
 fn outcome_runs() {
-    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::Outcome), None, Some(42));
+    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::Outcome), None, Some(42)).unwrap();
     solver.solve(100);
     assert_eq!(solver.iterations(), 100);
     assert!(solver.num_info_states() > 0);
@@ -38,7 +38,8 @@ fn outcome_runs() {
 
 #[test]
 fn outcome_discovers_all_2x2_info_states() {
-    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), Some(42));
+    let mut solver =
+        MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), Some(42)).unwrap();
     solver.solve(10000);
     let n = solver.num_info_states();
     assert!(n >= 40, "expected >=40 info states, got {n}");
@@ -47,13 +48,13 @@ fn outcome_discovers_all_2x2_info_states() {
 
 #[test]
 fn outcome_default_sampling() {
-    let solver = MCCFRSolver::new(2, 2, None, None, None);
+    let solver = MCCFRSolver::new(2, 2, None, None, None).unwrap();
     assert_eq!(solver.sampling, Sampling::Outcome);
 }
 
 #[test]
 fn outcome_strategy_valid() {
-    let mut solver = MCCFRSolver::new(2, 2, None, None, Some(42));
+    let mut solver = MCCFRSolver::new(2, 2, None, None, Some(42)).unwrap();
     solver.solve(5000);
     let strategy = solver.get_average_strategy();
     assert!(!strategy.is_empty());
@@ -65,8 +66,17 @@ fn outcome_strategy_valid() {
 
 #[test]
 fn outcome_3x3_runs() {
-    let mut solver = MCCFRSolver::new(3, 3, None, None, Some(42));
+    let mut solver = MCCFRSolver::new(3, 3, None, None, Some(42)).unwrap();
     solver.solve(100);
     assert_eq!(solver.iterations(), 100);
     assert!(solver.num_info_states() > 100);
+}
+
+#[test]
+fn epsilon_validation() {
+    assert!(MCCFRSolver::new(2, 2, None, Some(0.0), None).is_err());
+    assert!(MCCFRSolver::new(2, 2, None, Some(-0.1), None).is_err());
+    assert!(MCCFRSolver::new(2, 2, None, Some(1.1), None).is_err());
+    assert!(MCCFRSolver::new(2, 2, None, Some(0.6), None).is_ok());
+    assert!(MCCFRSolver::new(2, 2, None, Some(1.0), None).is_ok());
 }

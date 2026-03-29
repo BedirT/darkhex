@@ -346,6 +346,14 @@ impl DarkHexState {
         }
     }
 
+    pub fn rs_board_cells(&self) -> &[Cell] {
+        &self.board.cells
+    }
+
+    pub fn rs_player_views(&self) -> &[Vec<Option<Cell>>; 2] {
+        &self.player_views
+    }
+
     pub fn rs_info_state_string(&self, player: Player) -> String {
         let pi = player.index();
         let mut s = String::with_capacity(3 + self.board.size() + self.board.rows);

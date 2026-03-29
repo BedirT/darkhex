@@ -1,34 +1,68 @@
 [
   {
     "board": "2x2",
+    "rows": 2,
+    "cols": 2,
     "total_info_states": 42,
     "p0_info_states": 17,
     "p1_info_states": 25,
-    "terminal_states": 216,
-    "max_depth": 7
+    "game_states_visited": 105,
+    "max_depth": 7,
+    "wall_time_s": 0.001
   },
   {
     "board": "2x3",
+    "rows": 2,
+    "cols": 3,
     "total_info_states": 314,
     "p0_info_states": 147,
     "p1_info_states": 167,
-    "terminal_states": 53920,
-    "max_depth": 11
+    "game_states_visited": 1797,
+    "max_depth": 11,
+    "wall_time_s": 0.02
   },
   {
     "board": "3x2",
+    "rows": 3,
+    "cols": 2,
     "total_info_states": 410,
     "p0_info_states": 172,
     "p1_info_states": 238,
-    "terminal_states": 95760,
-    "max_depth": 11
+    "game_states_visited": 2469,
+    "max_depth": 11,
+    "wall_time_s": 0.02
   },
   {
     "board": "3x3",
+    "rows": 3,
+    "cols": 3,
     "total_info_states": 12556,
     "p0_info_states": 6293,
     "p1_info_states": 6263,
-    "terminal_states": 9469697760,
-    "max_depth": 17
+    "game_states_visited": 283859,
+    "max_depth": 17,
+    "wall_time_s": 2.95
+  },
+  {
+    "board": "4x3",
+    "rows": 4,
+    "cols": 3,
+    "total_info_states": 367919,
+    "p0_info_states": 184024,
+    "p1_info_states": 183895,
+    "game_states_visited": 31949417,
+    "max_depth": 23,
+    "wall_time_s": 510.08
+  },
+  {
+    "board": "3x4",
+    "rows": 3,
+    "cols": 4,
+    "total_info_states": 341033,
+    "p0_info_states": 170597,
+    "p1_info_states": 170436,
+    "game_states_visited": 28560489,
+    "max_depth": 23,
+    "wall_time_s": 426.6
   }
 ]

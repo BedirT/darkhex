@@ -19,9 +19,14 @@ class TestEnumerateGameTree:
         assert p0 > 0
         assert p1 > 0
 
-    def test_has_terminals(self):
+    def test_3x3_exact_count(self):
+        """With memoization, 3x3 completes in seconds."""
+        stats = enumerate_game_tree(3, 3)
+        assert stats.total_info_states == 12556
+
+    def test_has_game_states(self):
         stats = enumerate_game_tree(2, 2)
-        assert stats.terminal_states > 0
+        assert stats.game_states_visited > 0
 
     def test_repr(self):
         stats = enumerate_game_tree(2, 2)

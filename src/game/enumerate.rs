@@ -11,8 +11,9 @@ use crate::game::types::Player;
 /// randomness, no approximation. Every reachable decision point in
 /// the game tree is visited and its info state string recorded.
 ///
-/// CDH collision retries make the tree deeper but the HashSet
-/// deduplicates, so we only count unique board views.
+/// Optimization: memoizes on (true_board, current_player, player_views)
+/// to avoid re-traversing identical subtrees reached via different
+/// move orderings. This cuts 3x3 from 6.2h to seconds.
 #[pyclass]
 pub struct GameTreeStats {
     /// All unique info states found (both players).
@@ -21,9 +22,9 @@ pub struct GameTreeStats {
     /// Info states per player.
     #[pyo3(get)]
     pub info_states_by_player: [usize; 2],
-    /// Total terminal states (game-over leaves).
+    /// Total unique game states visited (not terminal histories).
     #[pyo3(get)]
-    pub terminal_states: usize,
+    pub game_states_visited: usize,
     /// Maximum depth reached in the tree.
     #[pyo3(get)]
     pub max_depth: usize,
@@ -33,24 +34,47 @@ pub struct GameTreeStats {
 impl GameTreeStats {
     fn __repr__(&self) -> String {
         format!(
-            "GameTreeStats(info_states={}, P0={}, P1={}, terminals={}, max_depth={})",
+            "GameTreeStats(info_states={}, P0={}, P1={}, game_states={}, max_depth={})",
             self.total_info_states,
             self.info_states_by_player[0],
             self.info_states_by_player[1],
-            self.terminal_states,
+            self.game_states_visited,
             self.max_depth,
         )
     }
 }
 
+/// Compact key for memoization: true board cells + both player views.
+/// Two states with identical keys produce identical subtrees.
+fn state_key(state: &DarkHexState) -> Vec<u8> {
+    // Encode: true_board | player_views[0] | player_views[1] | current_player
+    // Each cell is 2 bits (Empty=0, Black=1, White=2), view cell is 2 bits (None=0, Black=1, White=2)
+    // For simplicity, use one byte per cell (fast, slightly more memory)
+    let n = state.rs_board_cells().len();
+    let mut key = Vec::with_capacity(3 * n + 1);
+    for &c in state.rs_board_cells() {
+        key.push(c as u8);
+    }
+    for view in state.rs_player_views() {
+        for v in view {
+            key.push(match v {
+                None => 0,
+                Some(c) => *c as u8 + 1,
+            });
+        }
+    }
+    key.push(state.rs_current_player().index() as u8);
+    key
+}
+
 /// Enumerate all reachable info states for a given board size (CDH).
 ///
-/// Performs exhaustive depth-first traversal of the full game tree.
-/// Returns exact counts — use this to verify MCCFR coverage.
+/// Uses memoization on full game state to avoid re-traversing identical
+/// subtrees. This makes 3x3 feasible in seconds instead of hours.
 #[pyfunction]
 pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
     let mut info_states: [HashSet<String>; 2] = [HashSet::new(), HashSet::new()];
-    let mut terminal_count: usize = 0;
+    let mut visited: HashSet<Vec<u8>> = HashSet::new();
     let mut max_depth: usize = 0;
 
     let state = DarkHexState::rs_new(rows, cols);
@@ -60,7 +84,7 @@ pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
         &state,
         0,
         &mut info_states,
-        &mut terminal_count,
+        &mut visited,
         &mut max_depth,
         &mut actions_buf,
     );
@@ -70,7 +94,7 @@ pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
     GameTreeStats {
         total_info_states: p0 + p1,
         info_states_by_player: [p0, p1],
-        terminal_states: terminal_count,
+        game_states_visited: visited.len(),
         max_depth,
     }
 }
@@ -79,22 +103,26 @@ fn traverse(
     state: &DarkHexState,
     depth: usize,
     info_states: &mut [HashSet<String>; 2],
-    terminal_count: &mut usize,
+    visited: &mut HashSet<Vec<u8>>,
     max_depth: &mut usize,
     actions_buf: &mut Vec<usize>,
 ) {
     if state.rs_is_terminal() {
-        *terminal_count += 1;
         if depth > *max_depth {
             *max_depth = depth;
         }
         return;
     }
 
+    // Memoize: if we've seen this exact game state, skip
+    let key = state_key(state);
+    if !visited.insert(key) {
+        return;
+    }
+
     let player = state.rs_current_player();
     let pi = player.index();
-    let info_key = state.rs_info_state_string(player);
-    info_states[pi].insert(info_key);
+    info_states[pi].insert(state.rs_info_state_string(player));
 
     state.rs_legal_actions(actions_buf);
     let actions: Vec<usize> = actions_buf.clone();
@@ -102,7 +130,7 @@ fn traverse(
     for &action in &actions {
         let mut child = state.clone();
         child.rs_apply_action(action);
-        traverse(&child, depth + 1, info_states, terminal_count, max_depth, actions_buf);
+        traverse(&child, depth + 1, info_states, visited, max_depth, actions_buf);
     }
 }
 

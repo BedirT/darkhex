@@ -79,11 +79,14 @@ for info_state, probs in sorted(strategy.items())[:5]:
 
 Info state counts verified by exhaustive game tree enumeration (`enumerate_game_tree`):
 
-| Board | Exact Count | Method | Time |
-|-------|-------------|--------|------|
-| 2x2 | **42** (P0=17, P1=25) | Exhaustive DFS | 0.001s |
-| 3x2 | **410** (P0=172, P1=238) | Exhaustive DFS | 0.23s |
-| 3x3 | **12,556** (P0=6293, P1=6263) | Exhaustive DFS | 6.2h |
+| Board | Exact Count | Game States | Time |
+|-------|-------------|-------------|------|
+| 2x2 | **42** (P0=17, P1=25) | 105 | 0.001s |
+| 2x3 | **314** (P0=147, P1=167) | 1,797 | 0.02s |
+| 3x2 | **410** (P0=172, P1=238) | 2,469 | 0.02s |
+| 3x3 | **12,556** (P0=6293, P1=6263) | 283,859 | 3.0s |
+| 4x3 | **367,919** (P0=184024, P1=183895) | 31,949,417 | 8.5min |
+| 3x4 | **341,033** (P0=170597, P1=170436) | 28,560,489 | 7.1min |
 
 All three verified by exhaustive enumeration. 3x3 has 9.47 billion terminal
 histories (max depth 17 due to CDH collision retries), explaining the 6.2h

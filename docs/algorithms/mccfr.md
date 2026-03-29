@@ -83,11 +83,11 @@ Info state counts verified by exhaustive game tree enumeration (`enumerate_game_
 |-------|-------------|--------|------|
 | 2x2 | **42** (P0=17, P1=25) | Exhaustive DFS | 0.001s |
 | 3x2 | **410** (P0=172, P1=238) | Exhaustive DFS | 0.23s |
-| 3x3 | **12,556** | MCCFR@500k (DFS intractable) | 26s |
+| 3x3 | **12,556** (P0=6293, P1=6263) | Exhaustive DFS | 6.2h |
 
-2x2 and 3x2 are independently verified by both enumeration and MCCFR.
-3x3 full tree traversal is intractable (billions of histories), but MCCFR
-at 500k iterations converges to 12,556, matching the thesis.
+All three verified by exhaustive enumeration. 3x3 has 9.47 billion terminal
+histories (max depth 17 due to CDH collision retries), explaining the 6.2h
+runtime. MCCFR Outcome Sampling reaches the same 12,556 in just 26 seconds.
 
 ## Verified Results
 

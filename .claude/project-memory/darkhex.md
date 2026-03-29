@@ -1,7 +1,7 @@
 ---
 project_id: darkhex
 repo_root: /Users/bedirt/Documents/Github/darkhex
-vault_root: /Users/bedirt/Documents/ObsidianVault/Research/darkhex
+vault_root: /Users/bedirt/Library/Mobile Documents/iCloud~md~obsidian/Documents/Research/darkhex
 hub_note: Research/darkhex/00-Hub.md
 language: en
 last_sync_at: 2026-03-29T01:57:09Z

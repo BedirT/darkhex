@@ -34,7 +34,7 @@ git log --oneline -5
 echo ""
 echo "=== Knowledge Base ==="
 if [ -f .claude/project-memory/registry.yaml ]; then
-  echo "Obsidian KB: bound (see ~/Documents/ObsidianVault/Research/darkhex/)"
+  echo "Obsidian KB: bound (iCloud: ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Research/darkhex/)"
 else
   echo "Obsidian KB: not bound"
 fi

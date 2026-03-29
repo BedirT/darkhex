@@ -16,11 +16,15 @@ darkhex/
 ├── Cargo.toml              # Rust crate config
 ├── pyproject.toml           # Python project (maturin build backend)
 ├── Makefile                 # Dev commands: build, test, lint, check
-├── src/                     # Rust game engine
+├── src/                     # Rust game engine + solver
 │   ├── lib.rs               # PyO3 module entry (_engine)
-│   ├── types.rs             # Player, Cell enums
-│   ├── board.rs             # HexBoard + union-find
-│   └── state.rs             # DarkHexState (imperfect info)
+│   ├── game/                # Foundation layer (no external deps)
+│   │   ├── types.rs         # Player, Cell, CollisionRule enums
+│   │   ├── board.rs         # HexBoard + union-find win detection
+│   │   ├── state.rs         # DarkHexState (4 Dark Hex variants)
+│   │   └── enumerate.rs     # Memoized exhaustive info state enumeration
+│   └── solver/              # Algorithm layer (depends on game/)
+│       └── mccfr.rs         # External + Outcome Sampling MCCFR
 ├── darkhex/                 # Python package (legacy + new)
 │   ├── _engine.pyi          # (planned) Type stubs for Rust module
 │   ├── algorithms/          # CFR variants
@@ -142,15 +146,17 @@ state.copy()                         # branch for tree traversal
 
 This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 
-### Planned Algorithms
+### Algorithms
 
-| Algorithm | Status | Reference |
-|-----------|--------|-----------|
-| Outcome Sampling MCCFR | Planned (port from pyspiel) | Lanctot et al. 2009 |
-| External Sampling MCCFR | Planned | Lanctot et al. 2009 |
-| Best Response | Planned | — |
-| SimPly (policy simplification) | Exists (Python, needs port) | Thesis |
-| SimPly+ (fractionized) | Exists (Python, needs port) | Thesis |
+| Algorithm | Status | Location | Reference |
+|-----------|--------|----------|-----------|
+| Outcome Sampling MCCFR | **Implemented** | `src/solver/mccfr.rs` | Lanctot et al. 2009 |
+| External Sampling MCCFR | **Implemented** | `src/solver/mccfr.rs` | Lanctot et al. 2009 |
+| Game tree enumeration | **Implemented** | `src/game/enumerate.rs` | — |
+| Best Response / Exploitability | Planned | — | — |
+| SimPly (policy simplification) | Planned (port) | — | Thesis |
+| SimPly+ (fractionized) | Planned (port) | — | Thesis |
+| pONE (sure-win pruning) | Planned | — | Thesis |
 
 ## Experiment Pipeline
 

@@ -4,45 +4,56 @@
 Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
-- Date: 2026-03-28
-- Set up Rust+PyO3 project structure, uv packaging, and implemented Dark Hex game engine
-- All tests passing (11 Rust + 16 Python), lint clean
+- Date: 2026-03-28/29
+- Built Rust game engine, MCCFR (External + Outcome Sampling), exhaustive enumeration
+- Found and fixed 3 OS-MCCFR importance weight bugs via PR review + literature verification
+- Memoized enumeration: 7,000x speedup, 4x3 now feasible (8.5min)
+- All 4 thesis info state counts independently confirmed + 2 new board sizes
+- PR #18 open: feature/outcome-sampling → re-dev (9 commits, 76 tests)
 
-## Completed (recent)
-- [x] Rust+PyO3/maturin project structure with feature-gated extension-module
-- [x] uv + pyproject.toml packaging (replaces setup.py + requirements.txt)
-- [x] Makefile with build/dev/test/lint/check commands
-- [x] Rust game engine: HexBoard with union-find win detection
-- [x] Rust game engine: DarkHexState with collision handling, per-player views, info states
-- [x] 11 Rust unit tests (board, union-find, state mechanics)
-- [x] 16 Python integration tests (player, state, collision, info states, copy, 3x3)
-- [x] Harness setup: AGENTS.md, CLAUDE.md, hooks, rules, init script, back-pressure
-- [x] Tech stack finalized: Rust+PyO3 core, Python 3.12 algorithms, uv, NiceGUI
-- [x] Agent team: 4 agents (researcher, planner, implementer, reviewer) in .claude/agents/
-- [x] Experiment-loop skill (Karpathy autoresearch pattern for CFR)
-- [x] Documentation skeletons: ARCHITECTURE.md, RESEARCH_GUIDELINES.md, templates
-- [x] Path-scoped rules: algorithms.md, experiments.md
+## Completed
+- [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
+- [x] External Sampling MCCFR (pure Rust, no PyO3 in hot loop)
+- [x] Outcome Sampling MCCFR (corrected per OpenSpiel, 2,300x faster on 3x3)
+- [x] Exhaustive info state enumeration with memoization
+- [x] Ground truth: 2x2=42, 2x3=314, 3x2=410, 3x3=12,556, 4x3=367,919, 3x4=341,033
+- [x] Experiment framework: experiments/ + results/ with CSV/JSON
+- [x] EXP-001: MCCFR convergence verification
+- [x] EXP-002: Info state enumeration (all thesis values confirmed)
+- [x] src/ restructured: game/ + solver/ with separate test files
+- [x] Architecture: Rust for tabular algos + VecEnv, Python for neural
+- [x] Obsidian project KB with Experiments/ and Results/ notes
+- [x] Harness: init.sh, AGENTS.md (git workflow, reasoning chains), hooks, rules
+- [x] 76 tests (30 Rust + 46 Python), all passing
+
+## Open PR
+- #18: feature/outcome-sampling → re-dev (9 commits, 18 review comments addressed)
 
 ## Up Next
-- [ ] Port MCCFR to Python calling Rust game engine (replace pyspiel dependency)
-- [ ] Design experiment suite (Karpathy-style loop for CFR parameter exploration)
-- [ ] Build NiceGUI web visualization
-- [ ] Write paper (cherry-pick claude-scholar skills for paper writing phase)
+- [ ] Exploitability / best response computation (needed to verify Nash convergence)
+- [ ] Verify MCCFR strategies against exploitability on 2x2
+- [ ] SIP/SIP+ policy simplification (thesis novel contribution)
+- [ ] pONE sure-win state database (20% memory savings on 4x3)
+- [ ] Isomorphic state reduction (~halves info state count)
+- [ ] Run MCCFR on 4x3 (367,919 info states — the thesis headline board)
+- [ ] Deep CFR or ReBeL prototype
 
 ## Decisions Made
-- Rust + PyO3/maturin for game engine core — 50-100x speedup over Python (2026-03-27)
-- Reference repos: erikbrinkman/cfr (trait-based), postflop-solver (production-grade Rust CFR) (2026-03-27)
-- Python 3.12 for algorithms, experiments, paper (2026-03-27)
-- uv + pyproject.toml for packaging (2026-03-27)
-- NiceGUI for web visualization (replacing GTK3/tkinter) (2026-03-27)
-- pytest + hypothesis for testing (2026-03-27)
-- pyright for type checking, ruff for linting (2026-03-27)
-- matplotlib + seaborn for paper figures (2026-03-27)
-- AGENTS.md as cross-tool source of truth, CLAUDE.md imports it (2026-03-27)
-- 4-agent team: researcher, planner, implementer, reviewer — sequential orchestration (2026-03-27)
-- Karpathy autoresearch pattern adapted for CFR experiment loop (2026-03-27)
-- Cherry-pick claude-scholar skills for paper writing (later) (2026-03-27)
-- No game-theory AI tools exist — this gap is our opportunity (2026-03-27)
+- CDH default, all 4 variants supported (2026-03-28)
+- External → Outcome Sampling (External too slow for 3x3) (2026-03-28)
+- OS-MCCFR corrected: epsilon only at update player, raw utility at terminal (2026-03-29)
+- Memoized enumeration: full game state key for dedup (2026-03-29)
+- Rust for tabular algos, Python for neural via VecEnv batching (2026-03-28)
+- Memory is hard constraint: f32, lazy alloc, pONE, isomorphic (2026-03-28)
+- Git: re-dev = develop, feature branches PR back (2026-03-28)
+- No AI co-author in commits (2026-03-28)
+- Rust tests in separate _tests.rs files, never inline (2026-03-28)
+- src/ organized: game/ (foundation) + solver/ (algorithms) (2026-03-28)
+
+## Failed Approaches
+- External Sampling on 3x3: 7 iters/s, exponential in branching factor
+- OS-MCCFR with epsilon at all nodes: biased importance weights (3 bugs)
+- Naive DFS enumeration: 6.2h on 3x3 (9.47B terminals)
 
 ## Blockers
 - None

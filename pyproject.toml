@@ -50,7 +50,7 @@ addopts = "-x --tb=short"
 line-length = 88
 target-version = "py311"
 # Exclude legacy code — will be replaced by Rust engine + new Python algorithms
-exclude = ["darkhex/", "setup.py"]
+exclude = ["darkhex/", "setup.py", "temp/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]

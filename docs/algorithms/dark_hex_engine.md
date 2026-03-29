@@ -54,16 +54,18 @@ Two variants:
 
 Where n = rows × cols and α is the inverse Ackermann function (effectively constant).
 
-### Game Tree Size
+### Game Tree Size (verified by exhaustive memoized enumeration)
 
-| Board | States | Info sets (est.) |
-|-------|--------|-----------------|
-| 2×2 | ~24 | ~40 |
-| 3×2 | ~720 | ~2,000 |
-| 3×3 | ~362,880 | ~50,000 |
-| 4×4 | ~2×10¹³ | intractable exact |
+| Board | Game States | Info States (IR) | Enumeration Time |
+|-------|------------|-----------------|-----------------|
+| 2×2 | 105 | **42** | 0.001s |
+| 2×3 | 1,797 | **314** | 0.02s |
+| 3×2 | 2,469 | **410** | 0.02s |
+| 3×3 | 283,859 | **12,556** | 3.0s |
+| 4×3 | 31,949,417 | **367,919** | 8.5min |
+| 3×4 | 28,560,489 | **341,033** | 7.1min |
 
-Dark Hex has more info sets than Hex game states because each player has multiple possible observations for the same true board state.
+Board orientation matters: 4×3 ≠ 3×4 because Black connects N-S (rows) and White connects W-E (cols).
 
 ## Parameters
 
@@ -156,10 +158,13 @@ In Dark Hex, a player can collide multiple times on different cells. Each collis
 
 The current engine does not exploit board symmetry (180° rotation). The old code (`darkhex/utils/isomorphic.py`) had this. Planned for later — halves the effective info set count.
 
+### What IS in the Engine (beyond game logic)
+
+- **Exhaustive enumeration** (`src/game/enumerate.rs`) — memoized DFS for ground truth info state counts. Verified all boards up to 4x3.
+
 ### What's NOT in the Engine
 
-The engine is purely game logic. It does NOT include:
-- Algorithm implementations (MCCFR, best response) — those are Python
+- MCCFR solver — lives in `src/solver/mccfr.rs` (separate layer)
 - Policy storage or serialization — algorithms handle that
-- Visualization — separate NiceGUI layer
+- Visualization — separate NiceGUI layer (planned)
 - OpenSpiel compatibility — clean break from pyspiel dependency

@@ -31,6 +31,15 @@ Four Dark Hex variants supported via CollisionRule x CollisionInfo:
 
 All variants must be tested. CDH is the default for all experiments.
 
+## Git Workflow
+
+- `re-dev` is the development branch (treat like `develop` in gitflow)
+- Never push directly to `re-dev` — branch off it, then PR back
+- Branch naming: `feature/<name>`, `fix/<name>`, `experiment/<name>`
+- Example: `git checkout -b feature/outcome-sampling re-dev`
+- PRs merge into `re-dev` with `--no-ff`
+- `main` is the stable branch — only merge from `re-dev` at milestones
+
 ## Commands
 
 - Install: `uv sync`
@@ -44,6 +53,7 @@ All variants must be tested. CDH is the default for all experiments.
 
 ## Workflow
 
+- Document the reasoning chain: when a result reveals a limitation, state what was observed, why it's a problem, and how the next step addresses it. Commit messages and docs should read like a research narrative, not a changelog.
 - Prefer the simplest code and simplest solution. Less code, more results, better performance.
 - Each algorithm lives in a single Python file. Functions used 3+ times get elevated to shared modules.
 - Every experiment needs a hypothesis, evaluation plan, verification plan, and write-up plan in markdown before code is written.

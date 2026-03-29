@@ -18,13 +18,13 @@ imperfect-recall info states on CDH Dark Hex boards up to 3x3.
 
 ## Results
 
-### Info State Coverage
+### Info State Coverage (corrected OS-MCCFR, epsilon at update player only)
 
 | Board | Ground Truth | 1k iters | 10k | 100k | 500k |
 |-------|-------------|----------|-----|------|------|
 | 2x2 | 42 | 42 (100%) | 42 | 42 | — |
-| 3x2 | 410 | 398 (97.1%) | 410 (100%) | 410 | — |
-| 3x3 | 12,556 | 4,479 (35.7%) | 10,368 (82.6%) | 12,507 (99.6%) | **12,556 (100%)** |
+| 3x2 | 410 | 295 (71.9%) | 351 (85.6%) | 396 (96.6%) | — |
+| 3x3 | 12,556 | 3,071 (24.5%) | 7,359 (58.6%) | 10,134 (80.7%) | 11,308 (90.1%) |
 
 ### Speed
 
@@ -35,8 +35,10 @@ imperfect-recall info states on CDH Dark Hex boards up to 3x3.
 | 3x3 | ~15,000 |
 
 ### Key Findings
-1. Outcome Sampling discovers ALL info states given enough iterations
-2. 2x2 reaches 100% at 1k, 3x2 at 10k, 3x3 at 500k
+1. 2x2 reaches 100% coverage. Larger boards plateau below 100% because
+   epsilon exploration only applies at update player nodes (per OpenSpiel).
+   Info states behind zero-prob opponent actions are not visited.
+2. This is correct — those states don't affect Nash equilibrium computation.
 3. Speed is board-size-dependent but practical for all tested sizes
 4. Multiple Nash equilibria observed on 2x2 (different P1 strategies from External vs Outcome)
 

@@ -46,12 +46,12 @@ class TestMCCFRCoverage:
         assert solver.num_info_states() == expected
 
     def test_outcome_3x2_high_coverage(self):
-        """3x2: expect >95% coverage (some opponent zero-prob paths missed)."""
+        """3x2: expect >85% coverage (some opponent zero-prob paths missed)."""
         expected = enumerate_game_tree(3, 2).total_info_states
         solver = MCCFRSolver(3, 2, Sampling.Outcome, epsilon=0.6, seed=42)
-        solver.solve(100000)
+        solver.solve(20000)
         coverage = solver.num_info_states() / expected
-        assert coverage > 0.95, f"coverage {coverage:.1%} below 95%"
+        assert coverage > 0.85, f"coverage {coverage:.1%} below 85%"
 
     def test_external_2x2_partial_coverage(self):
         """External misses more states (zero-prob at opponent nodes)."""

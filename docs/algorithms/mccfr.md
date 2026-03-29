@@ -41,8 +41,8 @@ sampling to avoid full tree traversal, making it practical for large games.
 
 | Variant | Time/iteration | Space | Info state coverage |
 |---------|---------------|-------|---------------------|
-| External | O(\|A\|^d) | O(\|I\|) | Misses zero-prob branches |
-| Outcome | O(d) | O(\|I\|) | Full (epsilon-greedy) |
+| External | O(\|A\|^d) | O(\|I\|) | Misses zero-prob opponent branches |
+| Outcome | O(d) | O(\|I\|) | High (epsilon at update player only; asymptotically full) |
 
 Where |A| = max actions, d = game depth, |I| = info set count.
 
@@ -87,40 +87,43 @@ Info state counts verified by exhaustive game tree enumeration (`enumerate_game_
 
 All three verified by exhaustive enumeration. 3x3 has 9.47 billion terminal
 histories (max depth 17 due to CDH collision retries), explaining the 6.2h
-runtime. MCCFR Outcome Sampling reaches the same 12,556 in just 26 seconds.
+runtime.
 
-## Verified Results
+## Verified Results (Corrected OS-MCCFR)
 
-### 2x2 CDH (Outcome Sampling, 100k iterations, 1.85s)
+Note: Outcome Sampling applies epsilon-greedy exploration ONLY at the update
+player's nodes (per OpenSpiel). Opponent nodes sample from sigma directly.
+This means coverage is high but not 100% — info states behind zero-probability
+opponent actions are not visited. This is correct: those states don't affect
+Nash equilibrium computation.
 
-- **Info states**: 42 (verified by exhaustive enumeration)
+### 2x2 CDH (Outcome Sampling, 100k iterations, 2.3s)
+
+- **Info states**: 42/42 (100% — small enough for full coverage)
 - **Black opening**: 50/50 on cells 1 and 2 (anti-diagonal)
-- **White opening**: ~49/51 on cells 1 and 2 (different Nash equilibrium than External's 67/33 on cells 0/2 — multiple equilibria exist)
 - Converged by ~1k iterations
 
-### 3x2 CDH (Outcome Sampling, 100k iterations, 3.0s)
+### 3x2 CDH (Outcome Sampling, 100k iterations, 4.2s)
 
-- **Info states**: 410 (matches thesis exactly)
-- **Black opening**: cell 1 (85.4%), cell 4 (14.6%)
-- **Speed**: 33k iters/s (40x faster than External's 794 iters/s)
+- **Info states**: 396/410 (96.6%)
+- **Speed**: ~25k iters/s (31x faster than External's 794 iters/s)
 
-### 3x3 CDH (Outcome Sampling, 50k iterations, 2.5s)
+### 3x3 CDH (Outcome Sampling, 500k iterations, 31s)
 
-- **Info states**: 12,282 of 12,556 (97.8% — remaining fill in with more iterations)
-- **Speed**: 20k iters/s (3,000x faster than External's 6.5 iters/s)
-- **Black opening**: concentrating on corners 0 (36.6%) and 8 (23.8%) — still converging at 50k
-- **3x3 is now practical**: 1M iterations in ~49 seconds
+- **Info states**: 11,308/12,556 (90.1%)
+- **Speed**: ~15k iters/s (2,300x faster than External's 6.5 iters/s)
+- **3x3 is now practical**: 500k iterations in 31 seconds
 
 ### Speed Comparison
 
 | Board | External (it/s) | Outcome (it/s) | Speedup |
 |-------|-----------------|----------------|---------|
-| 2x2 | 10,800 | 54,000 | 5x |
-| 3x2 | 794 | 33,000 | 40x |
-| 3x3 | 6.5 | 20,000 | 3,000x |
+| 2x2 | 10,800 | 44,000 | 4x |
+| 3x2 | 794 | 25,000 | 31x |
+| 3x3 | 6.5 | 15,000 | 2,300x |
 
 External Sampling's O(|A|^d) cost is catastrophic on 3x3 (branching 9, depth 9).
-Outcome Sampling's O(d) cost makes it board-size-independent in throughput.
+Outcome Sampling's O(d) cost makes 3x3 practical.
 
 ## Implementation Notes
 

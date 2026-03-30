@@ -6,6 +6,7 @@ use rand::{Rng, SeedableRng};
 
 use crate::game::state::DarkHexState;
 use crate::game::types::Player;
+use crate::solver::pone::PoneDb;
 
 /// MCCFR sampling variant.
 #[pyclass(eq, eq_int)]
@@ -85,6 +86,8 @@ pub struct MCCFRSolver {
     sampling: Sampling,
     epsilon: f32,
     rng: SmallRng,
+    /// Optional pONE database for pruning determined subtrees.
+    pone_db: Option<PoneDb>,
 }
 
 #[pymethods]
@@ -118,7 +121,17 @@ impl MCCFRSolver {
             sampling: sampling_mode,
             epsilon: eps,
             rng: SmallRng::seed_from_u64(seed.unwrap_or(42)),
+            pone_db: None,
         })
+    }
+
+    /// Set an optional pONE database for pruning determined subtrees.
+    ///
+    /// When set, MCCFR will skip traversal into info states where the
+    /// current player has a probability-1 win, returning the determined
+    /// outcome immediately.
+    fn set_pone_db(&mut self, db: PoneDb) {
+        self.pone_db = Some(db);
     }
 
     /// Run `n` iterations of MCCFR.
@@ -221,12 +234,7 @@ impl MCCFRSolver {
 // --- Traversal implementations (pure Rust, no PyO3) ---
 
 impl MCCFRSolver {
-    fn get_strategy(
-        &mut self,
-        info_key: &str,
-        actions: &[usize],
-        sigma_buf: &mut Vec<f32>,
-    ) {
+    fn get_strategy(&mut self, info_key: &str, actions: &[usize], sigma_buf: &mut Vec<f32>) {
         if !self.info_states.contains_key(info_key) {
             self.info_states
                 .insert(info_key.to_string(), InfoStateData::new(actions));
@@ -248,6 +256,15 @@ impl MCCFRSolver {
         }
 
         let player = state.rs_current_player();
+
+        // pONE check: if this info state is a probability-1 win, skip subtree
+        if let Some(ref db) = self.pone_db {
+            let (canon, _) = state.rs_canonical_info_state(player);
+            if db.rs_contains(&canon) {
+                return if player == update_player { 1.0 } else { -1.0 };
+            }
+        }
+
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {
@@ -329,6 +346,15 @@ impl MCCFRSolver {
         }
 
         let player = state.rs_current_player();
+
+        // pONE check: if this info state is a probability-1 win, skip subtree
+        if let Some(ref db) = self.pone_db {
+            let (canon, _) = state.rs_canonical_info_state(player);
+            if db.rs_contains(&canon) {
+                return if player == update_player { 1.0 } else { -1.0 };
+            }
+        }
+
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {

@@ -5,10 +5,15 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
 - Date: 2026-03-29
-- Implemented exploitability / best response computation (clairvoyant upper bound)
-- Full game tree DFS with memoization, 2x2 < 1ms, 3x3 ~3.5s
-- 2x2 convergence verified: expl 0.55 → 0.02 after 50k OS-MCCFR iters
-- 15 new tests (7 Rust + 8 Python), all 54 tests passing
+- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings
+  - 2x2: 42 → 22 canonical, 3x2: 410 → ~205
+  - Integrated into MCCFR, exploitability, enumeration
+- pONE (probability-1 win states): belief-space precomputation per thesis §4.2
+  - Precomputes info states where player wins regardless of hidden stone placement
+  - Optional opt-in via set_pone_db() / pone_db kwarg
+  - Game logic completely unaffected
+- Fixed strategy-action index bug: get_average_strategy() now returns actual cell indices
+- 54 Rust + 63 Python = 117 tests passing
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -26,15 +31,17 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] Exploitability / best response (clairvoyant upper bound, memoized DFS)
 - [x] 2x2 MCCFR convergence verified via exploitability (0.55 → 0.02 at 50k iters)
 - [x] 91 tests (37 Rust + 54 Python), all passing
+- [x] Isomorphic state reduction (180° rotation, ~50% info state savings)
+- [x] pONE belief-space precomputation (probability-1 win state pruning)
+- [x] Fixed strategy-action index bug in get_average_strategy()
+- [x] 117 tests (54 Rust + 63 Python), all passing
 
 ## Open PR
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
+- [ ] Run MCCFR on 4x3 (~184,000 canonical info states — the thesis headline board)
 - [ ] SIP/SIP+ policy simplification (thesis novel contribution)
-- [ ] pONE sure-win state database (20% memory savings on 4x3)
-- [ ] Isomorphic state reduction (~halves info state count)
-- [ ] Run MCCFR on 4x3 (367,919 info states — the thesis headline board)
 - [ ] Deep CFR or ReBeL prototype
 
 ## Decisions Made
@@ -54,6 +61,12 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - External Sampling on 3x3: 7 iters/s, exponential in branching factor
 - OS-MCCFR with epsilon at all nodes: biased importance weights (3 bugs)
 - Naive DFS enumeration: 6.2h on 3x3 (9.47B terminals)
+
+## Decisions Made (continued)
+- Isomorphic reduction always on (no opt-out), canonical = lex-smaller of original/rotated (2026-03-29)
+- pONE is opt-in via set_pone_db() — game logic untouched (2026-03-29)
+- pONE uses belief-space check per thesis §4.2, NOT regular Hex minimax (2026-03-29)
+- Fixed strategy-action index bug: get_average_strategy returns cell indices not sequential (2026-03-29)
 
 ## Blockers
 - None

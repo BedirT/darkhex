@@ -25,7 +25,8 @@ darkhex/
 │   │   └── enumerate.rs     # Memoized exhaustive info state enumeration
 │   └── solver/              # Algorithm layer (depends on game/)
 │       ├── mccfr.rs         # External + Outcome Sampling MCCFR
-│       └── exploitability.rs # Best response + exploitability (memoized DFS)
+│       ├── exploitability.rs # Best response + exploitability (memoized DFS)
+│       └── pone.rs          # pONE belief-space precomputation + PoneDb
 ├── darkhex/                 # Python package (legacy + new)
 │   ├── _engine.pyi          # (planned) Type stubs for Rust module
 │   ├── algorithms/          # CFR variants
@@ -155,6 +156,8 @@ This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 | External Sampling MCCFR | **Implemented** | `src/solver/mccfr.rs` | Lanctot et al. 2009 |
 | Game tree enumeration | **Implemented** | `src/game/enumerate.rs` | — |
 | Best Response / Exploitability | **Implemented** | `src/solver/exploitability.rs` | Zinkevich et al. 2007 |
+| Isomorphic state reduction | **Implemented** | `src/game/state.rs` | 180° rotation symmetry |
+| pONE (probability-1 win states) | **Implemented** | `src/solver/pone.rs` | Bonnet 2018 / Thesis §4.2 |
 | SimPly (policy simplification) | Planned (port) | — | Thesis |
 | SimPly+ (fractionized) | Planned (port) | — | Thesis |
 | pONE (sure-win pruning) | Planned | — | Thesis |

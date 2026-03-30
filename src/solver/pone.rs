@@ -124,8 +124,13 @@ impl PoneDb {
     }
 
     /// Check if an info state is a pONE win.
+    ///
+    /// Accepts both canonical and non-canonical info state strings —
+    /// the input is canonicalized before lookup.
     fn contains(&self, info_state: &str) -> bool {
-        self.states.contains(info_state)
+        // Canonicalize: reverse the grid characters, compare, pick smaller.
+        let canon = canonicalize_info_state_str(info_state, self.rows, self.cols);
+        self.states.contains(&canon)
     }
 
     /// Number of pONE states in the database.
@@ -155,6 +160,36 @@ impl PoneDb {
     /// Rust-internal lookup.
     pub fn rs_contains(&self, info_state: &str) -> bool {
         self.states.contains(info_state)
+    }
+}
+
+/// Canonicalize an info state string by comparing it with its 180° rotation.
+/// Returns the lexicographically smaller of (original, rotated).
+fn canonicalize_info_state_str(info_state: &str, rows: usize, cols: usize) -> String {
+    // Format: "P{d}\n{grid}" where grid has \n-separated rows
+    let prefix = &info_state[..3]; // "P0\n" or "P1\n"
+    let grid = &info_state[3..];
+
+    // Extract cell characters (skip newlines), reverse, rebuild
+    let cells: Vec<char> = grid.chars().filter(|&c| c != '\n').collect();
+    let reversed: Vec<char> = cells.iter().rev().cloned().collect();
+
+    // Rebuild rotated grid with row breaks
+    let mut rotated = String::with_capacity(info_state.len());
+    rotated.push_str(prefix);
+    for row in 0..rows {
+        if row > 0 {
+            rotated.push('\n');
+        }
+        for col in 0..cols {
+            rotated.push(reversed[row * cols + col]);
+        }
+    }
+
+    if info_state <= rotated.as_str() {
+        info_state.to_string()
+    } else {
+        rotated
     }
 }
 

@@ -11,3 +11,6 @@ path = "src/main.rs"
 
 [dependencies]
 darkhex-core = { path = "../core" }
+bevy = "0.18"
+hexx = { version = "0.24", features = ["mesh"] }
+bevy_egui = "0.39"

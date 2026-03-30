@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use darkhex_core::solver::pone::canonicalize_info_state_str;
+
 use crate::common::info_state;
 
 /// A node in the strategy tree.
@@ -106,12 +108,17 @@ impl StrategyTree {
             return id;
         }
 
-        // Get actions from strategy
-        if let Some(action_probs) = strategy.get(info) {
+        // Get actions from strategy (canonicalize lookup since MCCFR uses canonical keys)
+        let canon = canonicalize_info_state_str(info, self.rows, self.cols);
+        let is_canonical = canon == info;
+        let n = self.rows * self.cols;
+        if let Some(action_probs) = strategy.get(&canon) {
             let collision_possible = info_state::is_collision_possible(info);
             let mut edges = Vec::new();
 
-            for &(action, prob) in action_probs {
+            for &(canon_action, prob) in action_probs {
+                // Remap action from canonical to original orientation
+                let action = if is_canonical { canon_action } else { n - 1 - canon_action };
                 let label = info_state::pos_to_label(action, self.cols);
 
                 // Success case

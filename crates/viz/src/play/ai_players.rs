@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use darkhex_core::game::types::Player;
+use darkhex_core::solver::pone::canonicalize_info_state_str;
 use rand::Rng;
 
 /// Strategy type: info_state_string → [(action, probability), ...]
@@ -30,16 +31,21 @@ impl AIPlayer for RandomPlayer {
 
 /// Plays according to a pre-computed strategy (from MCCFR or loaded file).
 #[allow(dead_code)]
+#[allow(dead_code)]
 pub struct StrategyPlayer {
     strategy: Strategy,
     name: String,
+    rows: usize,
+    cols: usize,
 }
 
 impl StrategyPlayer {
-    pub fn new(strategy: Strategy, name: impl Into<String>) -> Self {
+    pub fn new(strategy: Strategy, name: impl Into<String>, rows: usize, cols: usize) -> Self {
         Self {
             strategy,
             name: name.into(),
+            rows,
+            cols,
         }
     }
 
@@ -50,23 +56,34 @@ impl StrategyPlayer {
             .expect("valid solver params");
         solver.solve(iterations);
         let strategy = solver.get_average_strategy();
-        Self::new(strategy, format!("MCCFR-{iterations}"))
+        Self::new(strategy, format!("MCCFR-{iterations}"), rows, cols)
     }
 }
 
 impl AIPlayer for StrategyPlayer {
     fn select_action(&self, info_state: &str, legal_actions: &[usize]) -> usize {
-        if let Some(entries) = self.strategy.get(info_state) {
-            // Build probability distribution over legal actions
+        // MCCFR stores strategies under canonical info state keys.
+        // Canonicalize the lookup and remap actions if rotated.
+        let canon = canonicalize_info_state_str(info_state, self.rows, self.cols);
+        let is_canonical = canon == info_state;
+        let n = self.rows * self.cols;
+
+        if let Some(entries) = self.strategy.get(&canon) {
+            // Build probability distribution over legal actions.
+            // If the state was rotated, canonical actions use n-1-action mapping.
             let mut probs = vec![0.0f32; legal_actions.len()];
-            for &(action, prob) in entries {
-                if let Some(idx) = legal_actions.iter().position(|&a| a == action) {
+            for &(canon_action, prob) in entries {
+                let original_action = if is_canonical {
+                    canon_action
+                } else {
+                    n - 1 - canon_action
+                };
+                if let Some(idx) = legal_actions.iter().position(|&a| a == original_action) {
                     probs[idx] = prob;
                 }
             }
             let total: f32 = probs.iter().sum();
             if total > 0.0 {
-                // Normalize and sample
                 let mut rng = rand::thread_rng();
                 let r: f32 = rng.gen::<f32>() * total;
                 let mut cum = 0.0;

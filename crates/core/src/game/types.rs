@@ -1,32 +1,9 @@
-use pyo3::prelude::*;
-
 /// A player in the game. Black moves first and connects North-South.
 /// White connects West-East.
-#[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Player {
     Black = 0,
     White = 1,
-}
-
-#[pymethods]
-impl Player {
-    /// Return the opposing player.
-    #[pyo3(name = "opponent")]
-    fn py_opponent(&self) -> Player {
-        self.opponent()
-    }
-
-    fn __repr__(&self) -> &'static str {
-        match self {
-            Player::Black => "Player.Black",
-            Player::White => "Player.White",
-        }
-    }
-
-    fn __int__(&self) -> i32 {
-        *self as i32
-    }
 }
 
 impl Player {
@@ -54,7 +31,6 @@ impl Player {
 ///
 /// - **Classic (CDH)**: Player retries after collision until successful. Default.
 /// - **Abrupt (ADH)**: Collision wastes the turn; play passes to opponent.
-#[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum CollisionRule {
     /// Player retries until a stone is placed (thesis default).
@@ -68,7 +44,6 @@ pub enum CollisionRule {
 /// - **Silent**: Opponent learns nothing (CDH/ADH default).
 /// - **Noisy (NDH)**: Opponent is told a collision occurred (but not where).
 /// - **Flash (FDH)**: Opponent is told where the collision occurred.
-#[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum CollisionInfo {
     /// Opponent learns nothing.
@@ -79,7 +54,7 @@ pub enum CollisionInfo {
     Flash = 2,
 }
 
-/// Internal cell representation (not exposed to Python).
+/// Internal cell representation.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Cell {
     Empty,

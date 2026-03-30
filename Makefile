@@ -1,4 +1,4 @@
-.PHONY: build dev test test-rust test-python lint typecheck check clean fmt
+.PHONY: build dev test test-rust test-python lint typecheck check clean fmt viz
 
 # Build the Rust extension (release mode)
 build:
@@ -15,9 +15,9 @@ install:
 # Run all tests (Rust + Python)
 test: test-rust test-python
 
-# Rust unit tests
+# Rust unit tests (core crate only — Python crate needs maturin)
 test-rust:
-	cargo test
+	cargo test -p darkhex-core
 
 # Python integration tests (rebuilds Rust extension first)
 test-python: dev
@@ -37,13 +37,21 @@ typecheck:
 
 # Format Rust code
 fmt:
-	cargo fmt
+	cargo fmt --all
 
 # Full verification (lint + test)
 check:
 	./scripts/run-check.sh uv run ruff check .
-	./scripts/run-check.sh cargo test
+	./scripts/run-check.sh cargo test -p darkhex-core
 	./scripts/run-check.sh uv run pytest -x
+
+# Build and run the Bevy visualization app
+viz:
+	cargo run -p darkhex-viz
+
+# Build release version of the viz app
+viz-release:
+	cargo run -p darkhex-viz --release
 
 # Clean build artifacts
 clean:

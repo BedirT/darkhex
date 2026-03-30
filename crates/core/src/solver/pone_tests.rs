@@ -57,7 +57,7 @@ fn pone_root_not_pone_for_white() {
     // stones (h=0), so pONE reduces to regular Hex minimax. Black wins
     // 2x2 Hex, so the root IS pONE for Black. But White (not to move)
     // is never checked at the root. Verify that White's root info state
-    // is not in the pONE db — White never has the move at the root.
+    // is not in the pONE db -- White never has the move at the root.
     let db = PoneDb::new(2, 2);
     let state = DarkHexState::rs_new(2, 2);
     let (canon_w, _) = state.rs_canonical_info_state(Player::White);

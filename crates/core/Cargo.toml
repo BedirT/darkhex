@@ -1,0 +1,12 @@
+[package]
+name = "darkhex-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core game engine and solvers for Dark Hex"
+license = "MIT"
+
+[lib]
+name = "darkhex_core"
+
+[dependencies]
+rand = { version = "0.8", features = ["small_rng"] }

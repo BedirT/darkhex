@@ -84,7 +84,7 @@ fn epsilon_validation_outcome() {
 
 #[test]
 fn epsilon_ignored_for_external() {
-    // External Sampling ignores epsilon — any value accepted
+    // External Sampling ignores epsilon -- any value accepted
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), Some(0.0), None).is_ok());
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), None, None).is_ok());
 }

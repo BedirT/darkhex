@@ -1,0 +1,13 @@
+[package]
+name = "darkhex-viz"
+version = "0.1.0"
+edition = "2021"
+description = "Interactive visualization for DarkHex"
+license = "MIT"
+
+[[bin]]
+name = "darkhex-viz"
+path = "src/main.rs"
+
+[dependencies]
+darkhex-core = { path = "../core" }

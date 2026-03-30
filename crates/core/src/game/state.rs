@@ -1,17 +1,14 @@
-use pyo3::exceptions::PyValueError;
-use pyo3::prelude::*;
-
+use crate::error::CoreError;
 use crate::game::board::HexBoard;
 use crate::game::types::{Cell, CollisionInfo, CollisionRule, Player};
 
 /// State of a Dark Hex game.
 ///
-/// Supports all four thesis variants via `CollisionRule` × `CollisionInfo`:
-/// - **CDH** (Classic):  `Classic` + `Silent`  — player retries, opponent unaware
-/// - **ADH** (Abrupt):   `Abrupt` + `Silent`  — collision wastes turn
-/// - **NDH** (Noisy):    either   + `Noisy`   — opponent told collision happened
-/// - **FDH** (Flash):    either   + `Flash`   — opponent told where collision was
-#[pyclass]
+/// Supports all four thesis variants via `CollisionRule` x `CollisionInfo`:
+/// - **CDH** (Classic):  `Classic` + `Silent`  -- player retries, opponent unaware
+/// - **ADH** (Abrupt):   `Abrupt` + `Silent`  -- collision wastes turn
+/// - **NDH** (Noisy):    either   + `Noisy`   -- opponent told collision happened
+/// - **FDH** (Flash):    either   + `Flash`   -- opponent told where collision was
 #[derive(Clone)]
 pub struct DarkHexState {
     board: HexBoard,
@@ -27,22 +24,21 @@ pub struct DarkHexState {
     collision_info: CollisionInfo,
 }
 
-#[pymethods]
 impl DarkHexState {
     /// Create a new Dark Hex game state.
     ///
     /// Defaults to CDH (Classic Dark Hex): player retries after collision,
     /// opponent not informed.
-    #[new]
-    #[pyo3(signature = (rows, cols, collision_rule=None, collision_info=None))]
-    fn new(
+    pub fn new(
         rows: usize,
         cols: usize,
         collision_rule: Option<CollisionRule>,
         collision_info: Option<CollisionInfo>,
-    ) -> PyResult<Self> {
+    ) -> Result<Self, CoreError> {
         if rows == 0 || cols == 0 {
-            return Err(PyValueError::new_err("board dimensions must be positive"));
+            return Err(CoreError::InvalidDimension(
+                "board dimensions must be positive".into(),
+            ));
         }
         let n = rows * cols;
         Ok(Self {
@@ -57,34 +53,32 @@ impl DarkHexState {
         })
     }
 
-    #[getter]
-    fn rows(&self) -> usize {
+    pub fn rows(&self) -> usize {
         self.board.rows
     }
 
-    #[getter]
-    fn cols(&self) -> usize {
+    pub fn cols(&self) -> usize {
         self.board.cols
     }
 
-    fn num_players(&self) -> usize {
+    pub fn num_players(&self) -> usize {
         2
     }
 
-    fn current_player(&self) -> Player {
+    pub fn current_player(&self) -> Player {
         self.current_player
     }
 
-    fn is_terminal(&self) -> bool {
+    pub fn is_terminal(&self) -> bool {
         self.cached_winner.is_some()
     }
 
-    fn winner(&self) -> Option<Player> {
+    pub fn winner(&self) -> Option<Player> {
         self.cached_winner
     }
 
     /// Payoffs: `[black, white]`. +1 for winner, -1 for loser, 0 if ongoing.
-    fn returns(&self) -> [f64; 2] {
+    pub fn returns(&self) -> [f64; 2] {
         match self.cached_winner {
             Some(Player::Black) => [1.0, -1.0],
             Some(Player::White) => [-1.0, 1.0],
@@ -92,12 +86,12 @@ impl DarkHexState {
         }
     }
 
-    fn player_return(&self, player: Player) -> f64 {
+    pub fn player_return(&self, player: Player) -> f64 {
         self.returns()[player.index()]
     }
 
     /// Cells that appear empty to the current player.
-    fn legal_actions(&self) -> Vec<usize> {
+    pub fn legal_actions(&self) -> Vec<usize> {
         let pi = self.current_player.index();
         self.player_views[pi]
             .iter()
@@ -107,7 +101,7 @@ impl DarkHexState {
             .collect()
     }
 
-    fn num_legal_actions(&self) -> usize {
+    pub fn num_legal_actions(&self) -> usize {
         let pi = self.current_player.index();
         self.player_views[pi].iter().filter(|v| v.is_none()).count()
     }
@@ -120,19 +114,19 @@ impl DarkHexState {
     /// **ADH (Abrupt)**: On collision the turn is wasted; play passes.
     ///
     /// Returns `true` if the stone was placed, `false` if collision.
-    fn apply_action(&mut self, action: usize) -> PyResult<bool> {
+    pub fn apply_action(&mut self, action: usize) -> Result<bool, CoreError> {
         if self.cached_winner.is_some() {
-            return Err(PyValueError::new_err("game is already terminal"));
+            return Err(CoreError::GameTerminal);
         }
         if action >= self.board.size() {
-            return Err(PyValueError::new_err(format!(
+            return Err(CoreError::InvalidAction(format!(
                 "action {action} out of bounds for {}x{} board",
                 self.board.rows, self.board.cols
             )));
         }
         let pi = self.current_player.index();
         if self.player_views[pi][action].is_some() {
-            return Err(PyValueError::new_err(format!(
+            return Err(CoreError::InvalidAction(format!(
                 "action {action} not legal: cell not empty in player's view"
             )));
         }
@@ -141,7 +135,7 @@ impl DarkHexState {
         self.action_histories[pi].push(action);
 
         let placed = if self.board.place_stone(action, player) {
-            // Success — stone placed
+            // Success -- stone placed
             self.player_views[pi][action] = Some(Cell::from_player(player));
             self.cached_winner = self.board.winner();
             self.stones_placed += 1;
@@ -149,7 +143,7 @@ impl DarkHexState {
             self.current_player = Player::from_index(self.stones_placed % 2);
             true
         } else {
-            // Collision — player discovers opponent's stone
+            // Collision -- player discovers opponent's stone
             self.player_views[pi][action] = Some(Cell::from_player(player.opponent()));
 
             // Inform opponent based on CollisionInfo variant
@@ -162,7 +156,7 @@ impl DarkHexState {
                     // For now the observation is implicit in the action count.
                 }
                 CollisionInfo::Flash => {
-                    // Opponent knows WHERE the collision happened —
+                    // Opponent knows WHERE the collision happened --
                     // they see their own stone was discovered at this cell.
                     // (Opponent already sees their own stone, so no view change
                     //  needed, but this info affects the info state string.)
@@ -173,7 +167,7 @@ impl DarkHexState {
             // Turn handling depends on collision rule
             match self.collision_rule {
                 CollisionRule::Classic => {
-                    // CDH: same player retries — do NOT switch
+                    // CDH: same player retries -- do NOT switch
                 }
                 CollisionRule::Abrupt => {
                     // ADH: turn wasted, switch player
@@ -191,7 +185,7 @@ impl DarkHexState {
     ///
     /// Format: `"P{player}\n{board_view}"` where the board view shows
     /// only what the player can see (opponent stones hidden as `.`).
-    fn info_state_string(&self, player: Player) -> String {
+    pub fn info_state_string(&self, player: Player) -> String {
         let pi = player.index();
         let mut s = String::with_capacity(3 + self.board.size() + self.board.rows);
         s.push('P');
@@ -213,7 +207,7 @@ impl DarkHexState {
     }
 
     /// Perfect-recall information state string (includes action history).
-    fn info_state_string_perfect_recall(&self, player: Player) -> String {
+    pub fn info_state_string_perfect_recall(&self, player: Player) -> String {
         let pi = player.index();
         let mut s = self.info_state_string(player);
         s.push('\n');
@@ -224,30 +218,30 @@ impl DarkHexState {
     }
 
     /// Clone the state (for game-tree traversal in MCCFR).
-    fn copy(&self) -> Self {
+    pub fn copy(&self) -> Self {
         self.clone()
     }
 
     /// Number of successful stone placements so far.
-    fn stones_placed(&self) -> usize {
+    pub fn stones_placed(&self) -> usize {
         self.stones_placed
     }
 
     /// Number of stones actually on the board for each player.
-    fn num_stones(&self) -> [usize; 2] {
+    pub fn num_stones(&self) -> [usize; 2] {
         self.board.num_stones
     }
 
-    fn collision_rule(&self) -> CollisionRule {
+    pub fn collision_rule(&self) -> CollisionRule {
         self.collision_rule
     }
 
-    fn collision_info(&self) -> CollisionInfo {
+    pub fn collision_info(&self) -> CollisionInfo {
         self.collision_info
     }
 
     /// String representation of the true board (for debugging/verification).
-    fn true_board_string(&self) -> String {
+    pub fn true_board_string(&self) -> String {
         let mut s = String::with_capacity(self.board.size() + self.board.rows);
         for row in 0..self.board.rows {
             if row > 0 {
@@ -261,21 +255,8 @@ impl DarkHexState {
         s
     }
 
-    fn __repr__(&self) -> String {
-        format!(
-            "DarkHexState({}x{}, player={:?}, stones={}, terminal={})",
-            self.board.rows,
-            self.board.cols,
-            self.current_player,
-            self.stones_placed,
-            self.cached_winner.is_some()
-        )
-    }
-}
+    // --- Rust-native methods for internal use (hot-path for MCCFR traversal) ---
 
-/// Rust-native methods for internal use (no PyO3 overhead).
-/// These are the hot-path methods called by MCCFR traversal.
-impl DarkHexState {
     pub fn rs_new(rows: usize, cols: usize) -> Self {
         Self {
             board: HexBoard::new(rows, cols),
@@ -307,7 +288,7 @@ impl DarkHexState {
     /// Returns (canonical_info_state_string, is_original_the_canonical_form).
     ///
     /// The canonical form is the lexicographically smaller of the original
-    /// info state and its 180° rotation. Under rotation, cell at position
+    /// info state and its 180-degree rotation. Under rotation, cell at position
     /// `pos` maps to `n-1-pos`, which reverses the grid character order.
     pub fn rs_canonical_info_state(&self, player: Player) -> (String, bool) {
         let original = self.rs_info_state_string(player);
@@ -319,7 +300,7 @@ impl DarkHexState {
         }
     }
 
-    /// 180°-rotated info state: reads cell at position `n-1-pos` for each grid position.
+    /// 180-degree-rotated info state: reads cell at position `n-1-pos` for each grid position.
     fn rs_rotated_info_state_string(&self, player: Player) -> String {
         let pi = player.index();
         let n = self.board.size();

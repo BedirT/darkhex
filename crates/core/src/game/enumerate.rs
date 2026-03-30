@@ -1,54 +1,29 @@
 use std::collections::HashSet;
 
-use pyo3::prelude::*;
-
 use crate::game::state::DarkHexState;
-use crate::game::types::Player;
 
 /// Exhaustive game tree traversal to collect all reachable info states.
 ///
-/// This is the ground truth for info state counts — no sampling, no
+/// This is the ground truth for info state counts -- no sampling, no
 /// randomness, no approximation. Every reachable decision point in
 /// the game tree is visited and its info state string recorded.
 ///
 /// Optimization: memoizes on (true_board, current_player, player_views)
 /// to avoid re-traversing identical subtrees reached via different
 /// move orderings. This cuts 3x3 from 6.2h to seconds.
-#[pyclass]
 pub struct GameTreeStats {
     /// All unique info states found (both players).
-    #[pyo3(get)]
     pub total_info_states: usize,
     /// Info states per player.
-    #[pyo3(get)]
     pub info_states_by_player: [usize; 2],
-    /// Unique canonical info states (under 180° rotation symmetry).
-    #[pyo3(get)]
+    /// Unique canonical info states (under 180-degree rotation symmetry).
     pub canonical_info_states: usize,
     /// Canonical info states per player.
-    #[pyo3(get)]
     pub canonical_by_player: [usize; 2],
     /// Total unique game states visited (not terminal histories).
-    #[pyo3(get)]
     pub game_states_visited: usize,
     /// Maximum depth reached in the tree.
-    #[pyo3(get)]
     pub max_depth: usize,
-}
-
-#[pymethods]
-impl GameTreeStats {
-    fn __repr__(&self) -> String {
-        format!(
-            "GameTreeStats(info_states={}, canonical={}, P0={}, P1={}, game_states={}, max_depth={})",
-            self.total_info_states,
-            self.canonical_info_states,
-            self.info_states_by_player[0],
-            self.info_states_by_player[1],
-            self.game_states_visited,
-            self.max_depth,
-        )
-    }
 }
 
 /// Compact key for memoization: true board cells + both player views.
@@ -78,7 +53,6 @@ fn state_key(state: &DarkHexState) -> Vec<u8> {
 ///
 /// Uses memoization on full game state to avoid re-traversing identical
 /// subtrees. This makes 3x3 feasible in seconds instead of hours.
-#[pyfunction]
 pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
     let mut info_states: [HashSet<String>; 2] = [HashSet::new(), HashSet::new()];
     let mut canonical_states: [HashSet<String>; 2] = [HashSet::new(), HashSet::new()];

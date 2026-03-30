@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
-use pyo3::prelude::*;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
+use crate::error::CoreError;
 use crate::game::state::DarkHexState;
 use crate::game::types::Player;
 use crate::solver::pone::PoneDb;
 
 /// MCCFR sampling variant.
-#[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Sampling {
     /// Try ALL actions at update player nodes, sample ONE at opponent nodes.
@@ -77,40 +76,36 @@ fn sample_action(probs: &[f32], rng: &mut SmallRng) -> usize {
 ///
 /// External Sampling: fast convergence on small games (2x2, 3x2).
 /// Outcome Sampling: scales to large games (3x3+) with O(depth) per iteration.
-#[pyclass]
 pub struct MCCFRSolver {
     info_states: HashMap<String, InfoStateData>,
     iterations: usize,
     rows: usize,
     cols: usize,
-    sampling: Sampling,
+    pub sampling: Sampling,
     epsilon: f32,
     rng: SmallRng,
     /// Optional pONE database for pruning determined subtrees.
     pone_db: Option<PoneDb>,
 }
 
-#[pymethods]
 impl MCCFRSolver {
     /// Create a new MCCFR solver.
     ///
-    /// - `sampling`: `Sampling.External` or `Sampling.Outcome` (default: Outcome)
+    /// - `sampling`: `Sampling::External` or `Sampling::Outcome` (default: Outcome)
     /// - `epsilon`: exploration parameter for Outcome Sampling (default 0.6)
     /// - `seed`: RNG seed for reproducibility
-    #[new]
-    #[pyo3(signature = (rows, cols, sampling=None, epsilon=None, seed=None))]
-    fn new(
+    pub fn new(
         rows: usize,
         cols: usize,
         sampling: Option<Sampling>,
         epsilon: Option<f32>,
         seed: Option<u64>,
-    ) -> PyResult<Self> {
+    ) -> Result<Self, CoreError> {
         let sampling_mode = sampling.unwrap_or(Sampling::Outcome);
         let eps = epsilon.unwrap_or(0.6);
         if sampling_mode == Sampling::Outcome && !(0.0 < eps && eps <= 1.0) {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "epsilon must be in (0, 1] for Outcome Sampling",
+            return Err(CoreError::InvalidAction(
+                "epsilon must be in (0, 1] for Outcome Sampling".into(),
             ));
         }
         Ok(Self {
@@ -130,12 +125,12 @@ impl MCCFRSolver {
     /// When set, MCCFR will skip traversal into info states where the
     /// current player has a probability-1 win, returning the determined
     /// outcome immediately.
-    fn set_pone_db(&mut self, db: PoneDb) {
+    pub fn set_pone_db(&mut self, db: PoneDb) {
         self.pone_db = Some(db);
     }
 
     /// Run `n` iterations of MCCFR.
-    fn solve(&mut self, n: usize) {
+    pub fn solve(&mut self, n: usize) {
         let mut actions_buf = Vec::new();
         let mut sigma_buf = Vec::new();
         let mut q_buf = Vec::new();
@@ -170,26 +165,34 @@ impl MCCFRSolver {
         }
     }
 
-    fn iterations(&self) -> usize {
+    pub fn iterations(&self) -> usize {
         self.iterations
     }
 
-    fn num_info_states(&self) -> usize {
+    pub fn num_info_states(&self) -> usize {
         self.info_states.len()
     }
 
-    fn sampling(&self) -> Sampling {
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    pub fn cols(&self) -> usize {
+        self.cols
+    }
+
+    pub fn sampling(&self) -> Sampling {
         self.sampling
     }
 
-    fn epsilon(&self) -> f32 {
+    pub fn epsilon(&self) -> f32 {
         self.epsilon
     }
 
     /// Get the average (converged) strategy.
     ///
     /// Returns `{info_state_str: [(action_index, probability), ...]}`.
-    fn get_average_strategy(&self) -> HashMap<String, Vec<(usize, f32)>> {
+    pub fn get_average_strategy(&self) -> HashMap<String, Vec<(usize, f32)>> {
         let mut result = HashMap::new();
         for (key, data) in &self.info_states {
             let sum: f32 = data.strategy_sum.iter().sum();
@@ -213,11 +216,10 @@ impl MCCFRSolver {
     /// Get the current strategy at an info state.
     ///
     /// Accepts both canonical and non-canonical info state strings.
-    fn get_current_strategy(&self, info_state: &str) -> Option<Vec<f32>> {
-        // Canonicalize before lookup — solver stores canonical keys only.
-        let canon = crate::solver::pone::canonicalize_info_state_str(
-            info_state, self.rows, self.cols,
-        );
+    pub fn get_current_strategy(&self, info_state: &str) -> Option<Vec<f32>> {
+        // Canonicalize before lookup -- solver stores canonical keys only.
+        let canon =
+            crate::solver::pone::canonicalize_info_state_str(info_state, self.rows, self.cols);
         self.info_states.get(&canon).map(|data| {
             let mut sigma = Vec::new();
             regret_matching(&data.regret_sum, &mut sigma);
@@ -225,22 +227,8 @@ impl MCCFRSolver {
         })
     }
 
-    fn __repr__(&self) -> String {
-        format!(
-            "MCCFRSolver({}x{}, {:?}, eps={}, iters={}, info_states={})",
-            self.rows,
-            self.cols,
-            self.sampling,
-            self.epsilon,
-            self.iterations,
-            self.info_states.len()
-        )
-    }
-}
+    // --- Traversal implementations ---
 
-// --- Traversal implementations (pure Rust, no PyO3) ---
-
-impl MCCFRSolver {
     fn get_strategy(&mut self, info_key: &str, actions: &[usize], sigma_buf: &mut Vec<f32>) {
         if !self.info_states.contains_key(info_key) {
             self.info_states
@@ -264,10 +252,10 @@ impl MCCFRSolver {
 
         let player = state.rs_current_player();
 
-        // pONE pruning (thesis §4.2): treat probability-1 win states as
-        // pseudo-terminals. This substitutes the optimal value (±1) for the
+        // pONE pruning (thesis S4.2): treat probability-1 win states as
+        // pseudo-terminals. This substitutes the optimal value (+/-1) for the
         // subtree, skipping regret/strategy updates within it. Valid because
-        // at Nash equilibrium the value at a pONE state IS ±1, so the
+        // at Nash equilibrium the value at a pONE state IS +/-1, so the
         // surrogate is exact for converged strategies. The thesis reports
         // 20% memory savings and 8.2% fewer missed wins on 4x3.
         if let Some(ref db) = self.pone_db {
@@ -332,7 +320,7 @@ impl MCCFRSolver {
 
     /// Outcome Sampling MCCFR traversal (OpenSpiel formulation).
     ///
-    /// Returns an estimate of the "tail value" at this node — the utility
+    /// Returns an estimate of the "tail value" at this node -- the utility
     /// weighted by tail reach/sample ratios. Raw utility at terminals,
     /// importance-corrected value_estimate at decision nodes.
     ///
@@ -353,7 +341,7 @@ impl MCCFRSolver {
         q_buf: &mut Vec<f32>,
     ) -> f32 {
         if state.rs_is_terminal() {
-            // Return raw utility — weighting deferred to regret update
+            // Return raw utility -- weighting deferred to regret update
             return state.rs_player_return(update_player);
         }
 

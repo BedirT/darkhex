@@ -41,6 +41,7 @@ viz = [
 [tool.maturin]
 features = ["extension-module"]
 module-name = "darkhex._engine"
+manifest-path = "crates/python/Cargo.toml"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

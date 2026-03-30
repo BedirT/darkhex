@@ -21,9 +21,9 @@ fn cdh_initial_state() {
 #[test]
 fn cdh_black_wins_2x2() {
     let mut s = cdh(2, 2);
-    s.apply_action(0).unwrap(); // Black at (0,0) → success, White's turn
-    s.apply_action(1).unwrap(); // White at (0,1) → success, Black's turn
-    s.apply_action(2).unwrap(); // Black at (1,0) → N-S win
+    s.apply_action(0).unwrap(); // Black at (0,0) -> success, White's turn
+    s.apply_action(1).unwrap(); // White at (0,1) -> success, Black's turn
+    s.apply_action(2).unwrap(); // Black at (1,0) -> N-S win
     assert!(s.is_terminal());
     assert_eq!(s.winner(), Some(Player::Black));
     assert_eq!(s.returns(), [1.0, -1.0]);
@@ -34,12 +34,12 @@ fn cdh_collision_retries() {
     // CDH: after collision, SAME player tries again
     let mut s = cdh(2, 2);
     assert!(s.apply_action(0).unwrap()); // Black places at 0
-                                         // White's turn: tries cell 0 → collision
+                                         // White's turn: tries cell 0 -> collision
     assert!(!s.apply_action(0).unwrap()); // collision, returns false
                                           // White should STILL be the current player (CDH retry)
     assert_eq!(s.current_player(), Player::White);
     assert_eq!(s.num_stones(), [1, 0]);
-    // White retries on cell 1 → success
+    // White retries on cell 1 -> success
     assert!(s.apply_action(1).unwrap());
     // Now Black's turn
     assert_eq!(s.current_player(), Player::Black);
@@ -50,7 +50,7 @@ fn cdh_collision_retries() {
 fn cdh_collision_reveals_in_view() {
     let mut s = cdh(2, 2);
     s.apply_action(0).unwrap(); // Black at (0,0)
-    s.apply_action(0).unwrap(); // White collides at (0,0) → discovers Black
+    s.apply_action(0).unwrap(); // White collides at (0,0) -> discovers Black
                                 // White sees Black at cell 0
     let info_w = s.info_state_string(Player::White);
     assert_eq!(info_w, "P1\nx.\n..");
@@ -72,13 +72,13 @@ fn cdh_multiple_collisions_then_success() {
     // Black places at 0 and 1, White collides on both then succeeds on 2
     let mut s = cdh(2, 2);
     s.apply_action(0).unwrap(); // Black places 0
-    s.apply_action(0).unwrap(); // White collides 0 → stays White
+    s.apply_action(0).unwrap(); // White collides 0 -> stays White
     assert_eq!(s.current_player(), Player::White);
     // White needs to place somewhere. Black hasn't placed at 1 yet so...
     // Actually Black only placed 0. White collided 0. White tries 1.
-    s.apply_action(1).unwrap(); // White places 1 → success
+    s.apply_action(1).unwrap(); // White places 1 -> success
     assert_eq!(s.current_player(), Player::Black);
-    s.apply_action(2).unwrap(); // Black places 2 → N-S win (0 and 2)
+    s.apply_action(2).unwrap(); // Black places 2 -> N-S win (0 and 2)
     assert!(s.is_terminal());
     assert_eq!(s.winner(), Some(Player::Black));
 }
@@ -89,7 +89,7 @@ fn cdh_multiple_collisions_then_success() {
 fn adh_collision_wastes_turn() {
     let mut s = adh(2, 2);
     s.apply_action(0).unwrap(); // Black places at 0
-                                // White collides on 0 → turn wasted
+                                // White collides on 0 -> turn wasted
     assert!(!s.apply_action(0).unwrap());
     // Turn passed to Black (ADH)
     assert_eq!(s.current_player(), Player::Black);
@@ -142,12 +142,12 @@ fn three_by_three_black_wins() {
     assert_eq!(s.winner(), Some(Player::Black));
 }
 
-// --- Canonical info state (180° rotation symmetry) tests ---
+// --- Canonical info state (180-degree rotation symmetry) tests ---
 
 #[test]
 fn canonical_info_state_symmetry_2x2() {
-    // 2x2 board: 180° rotation maps cell 0↔3, 1↔2
-    // Black at cell 0 → "P0\nx.\n.." and Black at cell 3 → "P0\n..\n.x"
+    // 2x2 board: 180-degree rotation maps cell 0<->3, 1<->2
+    // Black at cell 0 -> "P0\nx.\n.." and Black at cell 3 -> "P0\n..\n.x"
     // These should have the same canonical form.
     let mut s1 = DarkHexState::rs_new(2, 2);
     s1.rs_apply_action(0); // Black at 0
@@ -181,7 +181,7 @@ fn canonical_preserves_player_prefix() {
 
 #[test]
 fn canonical_3x2_symmetry() {
-    // 3x2 board (6 cells): 180° maps 0↔5, 1↔4, 2↔3
+    // 3x2 board (6 cells): 180-degree maps 0<->5, 1<->4, 2<->3
     // Black at cell 0 and Black at cell 5 should share canonical form.
     let mut s1 = DarkHexState::rs_new(3, 2);
     s1.rs_apply_action(0);
@@ -201,7 +201,7 @@ fn canonical_non_symmetric_state_chooses_smaller() {
     s.rs_apply_action(0); // Black at 0
     let orig = s.rs_info_state_string(Player::Black);
     let (canon, is_orig) = s.rs_canonical_info_state(Player::Black);
-    // "P0\nx.\n.." vs rotated "P0\n..\n.x" — ".." < "x." so rotated is smaller
+    // "P0\nx.\n.." vs rotated "P0\n..\n.x" -- ".." < "x." so rotated is smaller
     assert!(!is_orig, "rotated should be chosen as canonical");
     assert!(canon < orig, "canonical should be lex-smaller");
 }

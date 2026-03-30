@@ -1,7 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use pyo3::prelude::*;
-
 use crate::game::board::HexBoard;
 use crate::game::state::DarkHexState;
 use crate::game::types::{Cell, Player};
@@ -56,7 +54,7 @@ fn hex_minimax(
         .collect();
 
     if empty.is_empty() {
-        // Full board with no winner — shouldn't happen in Hex
+        // Full board with no winner -- shouldn't happen in Hex
         // but return opponent as pessimistic default
         let result = current_player.opponent();
         memo.insert(key, result);
@@ -89,7 +87,6 @@ fn hex_minimax(
 /// This is a belief-space check: for each possible configuration of
 /// hidden stones consistent with the player's view, the player must
 /// be able to force a win.
-#[pyclass]
 #[derive(Clone)]
 pub struct PoneDb {
     /// Set of canonical info state strings that are pONE wins.
@@ -98,11 +95,9 @@ pub struct PoneDb {
     cols: usize,
 }
 
-#[pymethods]
 impl PoneDb {
     /// Build the pONE database by traversing the full game tree.
-    #[new]
-    fn new(rows: usize, cols: usize) -> Self {
+    pub fn new(rows: usize, cols: usize) -> Self {
         let mut states = HashSet::new();
         let mut minimax_memo: HashMap<Vec<u8>, Player> = HashMap::new();
         let mut visited: HashSet<Vec<u8>> = HashSet::new();
@@ -125,45 +120,38 @@ impl PoneDb {
 
     /// Check if an info state is a pONE win.
     ///
-    /// Accepts both canonical and non-canonical info state strings —
+    /// Accepts both canonical and non-canonical info state strings --
     /// the input is canonicalized before lookup.
-    fn contains(&self, info_state: &str) -> bool {
+    pub fn contains(&self, info_state: &str) -> bool {
         // Canonicalize: reverse the grid characters, compare, pick smaller.
         let canon = canonicalize_info_state_str(info_state, self.rows, self.cols);
         self.states.contains(&canon)
     }
 
     /// Number of pONE states in the database.
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.states.len()
     }
 
-    fn rows(&self) -> usize {
+    pub fn is_empty(&self) -> bool {
+        self.states.is_empty()
+    }
+
+    pub fn rows(&self) -> usize {
         self.rows
     }
 
-    fn cols(&self) -> usize {
+    pub fn cols(&self) -> usize {
         self.cols
     }
 
-    fn __repr__(&self) -> String {
-        format!(
-            "PoneDb({}x{}, {} pONE states)",
-            self.rows,
-            self.cols,
-            self.states.len()
-        )
-    }
-}
-
-impl PoneDb {
     /// Rust-internal lookup.
     pub fn rs_contains(&self, info_state: &str) -> bool {
         self.states.contains(info_state)
     }
 }
 
-/// Canonicalize an info state string by comparing it with its 180° rotation.
+/// Canonicalize an info state string by comparing it with its 180-degree rotation.
 /// Returns the lexicographically smaller of (original, rotated).
 ///
 /// If the input is malformed (wrong length, missing prefix), returns
@@ -179,7 +167,7 @@ pub fn canonicalize_info_state_str(info_state: &str, rows: usize, cols: usize) -
     // Extract cell characters (skip newlines), reverse, rebuild
     let cells: Vec<char> = grid.chars().filter(|&c| c != '\n').collect();
     if cells.len() != n {
-        return info_state.to_string(); // wrong dimension — return as-is
+        return info_state.to_string(); // wrong dimension -- return as-is
     }
     let reversed: Vec<char> = cells.iter().rev().cloned().collect();
 
@@ -311,7 +299,7 @@ fn is_pone(
     }
 
     if hidden_count == 0 {
-        // Player sees full picture — minimax check on the view board
+        // Player sees full picture -- minimax check on the view board
         return hex_minimax(&base_cells, rows, cols, player, minimax_memo) == player;
     }
 

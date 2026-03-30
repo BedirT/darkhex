@@ -39,7 +39,7 @@ fn board_2x2_black_wins_vertical() {
     // 2x2 board:
     //   0 1
     //   2 3
-    // Black connects North-South: needs 0→2 or 1→3
+    // Black connects North-South: needs 0->2 or 1->3
     let mut b = HexBoard::new(2, 2);
     b.place_stone(0, Player::Black);
     assert_eq!(b.winner(), None);
@@ -50,7 +50,7 @@ fn board_2x2_black_wins_vertical() {
 
 #[test]
 fn board_2x2_white_wins_horizontal() {
-    // White connects West-East: needs 0→1 or 2→3
+    // White connects West-East: needs 0->1 or 2->3
     let mut b = HexBoard::new(2, 2);
     b.place_stone(0, Player::Black);
     b.place_stone(2, Player::White); // col 0

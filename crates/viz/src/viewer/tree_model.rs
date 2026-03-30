@@ -14,6 +14,10 @@ pub struct TreeNode {
     pub grid: Vec<char>,
     pub actions: Vec<TreeEdge>,
     pub is_terminal: bool,
+    pub depth: usize,
+    pub parent: Option<usize>,
+    /// Label of the edge that led here from parent (e.g. "a1" or "a1 (collision)").
+    pub edge_label: Option<String>,
 }
 
 /// An edge from a tree node to a child.
@@ -61,7 +65,7 @@ impl StrategyTree {
 
         let initial = info_state::initial_info_state(player, rows, cols);
         let mut visited: HashMap<String, usize> = HashMap::new();
-        tree.build_recursive(&initial, strategy, &mut visited);
+        tree.build_recursive(&initial, strategy, &mut visited, 0, None, None);
 
         tree
     }
@@ -71,6 +75,9 @@ impl StrategyTree {
         info: &str,
         strategy: &HashMap<String, Vec<(usize, f32)>>,
         visited: &mut HashMap<String, usize>,
+        depth: usize,
+        parent: Option<usize>,
+        edge_label: Option<String>,
     ) -> usize {
         // If already visited, return existing node id
         if let Some(&id) = visited.get(info) {
@@ -89,6 +96,9 @@ impl StrategyTree {
             grid: grid.clone(),
             actions: Vec::new(),
             is_terminal,
+            depth,
+            parent,
+            edge_label,
         });
         visited.insert(info.to_string(), id);
 
@@ -111,7 +121,14 @@ impl StrategyTree {
                     self.player,
                     self.cols,
                 );
-                let child_id = self.build_recursive(&success_info, strategy, visited);
+                let child_id = self.build_recursive(
+                    &success_info,
+                    strategy,
+                    visited,
+                    depth + 1,
+                    Some(id),
+                    Some(label.clone()),
+                );
                 edges.push(TreeEdge {
                     action,
                     label: label.clone(),
@@ -128,7 +145,15 @@ impl StrategyTree {
                         self.player,
                         self.cols,
                     );
-                    let child_id = self.build_recursive(&collision_info, strategy, visited);
+                    let collision_label = format!("{label} (collision)");
+                    let child_id = self.build_recursive(
+                        &collision_info,
+                        strategy,
+                        visited,
+                        depth + 1,
+                        Some(id),
+                        Some(collision_label),
+                    );
                     edges.push(TreeEdge {
                         action,
                         label: format!("{label}!"),

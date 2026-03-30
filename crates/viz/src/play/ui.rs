@@ -8,6 +8,39 @@ use super::game_logic::{GameConfig, GameSession};
 use crate::hex_board::components::{CellState, HexCell, HexClickEvent};
 use crate::hex_board::research_renderer::BoardSizeRequest;
 
+/// Format the game status as colored `RichText`.
+fn status_rich_text(session: &GameSession) -> egui::RichText {
+    if session.game_over {
+        let label = match session.winner {
+            Some(Player::Black) => "Black wins!",
+            Some(Player::White) => "White wins!",
+            None => "Draw",
+        };
+        egui::RichText::new(label)
+            .size(18.0)
+            .strong()
+            .color(egui::Color32::from_rgb(255, 215, 0))
+    } else if session.state.current_player() == session.human_player {
+        egui::RichText::new("Your turn — click a cell")
+            .size(16.0)
+            .strong()
+            .color(egui::Color32::from_rgb(80, 200, 80))
+    } else {
+        egui::RichText::new("AI is thinking...")
+            .size(16.0)
+            .strong()
+            .color(egui::Color32::from_rgb(230, 200, 50))
+    }
+}
+
+/// Short label for the active variant.
+fn variant_label(rule: CollisionRule) -> &'static str {
+    match rule {
+        CollisionRule::Classic => "CDH",
+        CollisionRule::Abrupt => "ADH",
+    }
+}
+
 /// System: egui sidebar for the Play screen.
 pub fn play_ui(
     mut contexts: EguiContexts,
@@ -18,24 +51,60 @@ pub fn play_ui(
     let Ok(ctx) = contexts.ctx_mut() else { return };
 
     egui::SidePanel::left("play_controls")
-        .default_width(200.0)
+        .default_width(220.0)
         .show(ctx, |ui| {
-            // Board size
-            ui.label("Board Size:");
-            let sizes: &[(usize, usize)] = &[(2, 2), (3, 2), (3, 3), (4, 3)];
-            for &(r, c) in sizes {
-                let label = format!("{}x{}", r, c);
-                let selected = config.rows == r && config.cols == c;
-                if ui.selectable_label(selected, label).clicked() && !selected {
-                    config.rows = r;
-                    config.cols = c;
-                }
-            }
+            ui.heading("Play");
             ui.separator();
 
-            // Play as
-            ui.label("Play as:");
+            // -- Game status (prominent, at the top) --
+            if let Some(ref session) = session {
+                ui.add_space(2.0);
+                ui.label(status_rich_text(session));
+
+                if let Some(collision_pos) = session.last_collision {
+                    let label = pos_to_label_ui(collision_pos, session.cols);
+                    ui.label(
+                        egui::RichText::new(format!("Collision at {label}!"))
+                            .color(egui::Color32::from_rgb(220, 60, 40)),
+                    );
+                }
+
+                // Compact game info line
+                ui.add_space(2.0);
+                let info_line = format!(
+                    "{}x{}  {}  vs {}",
+                    session.rows,
+                    session.cols,
+                    variant_label(config.collision_rule),
+                    session.ai.display_name(),
+                );
+                ui.label(egui::RichText::new(info_line).weak().italics());
+                ui.add_space(4.0);
+                ui.separator();
+            }
+
+            // -- Settings --
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Settings").strong().size(14.0));
+            ui.add_space(2.0);
+
+            // Board size — horizontal button row
             ui.horizontal(|ui| {
+                ui.label("Board:");
+                let sizes: &[(usize, usize)] = &[(2, 2), (3, 2), (3, 3), (4, 3)];
+                for &(r, c) in sizes {
+                    let label = format!("{}x{}", r, c);
+                    let selected = config.rows == r && config.cols == c;
+                    if ui.selectable_label(selected, label).clicked() && !selected {
+                        config.rows = r;
+                        config.cols = c;
+                    }
+                }
+            });
+
+            // Play as — horizontal
+            ui.horizontal(|ui| {
+                ui.label("Play as:");
                 if ui
                     .selectable_label(config.human_player == Player::Black, "Black")
                     .clicked()
@@ -49,23 +118,10 @@ pub fn play_ui(
                     config.human_player = Player::White;
                 }
             });
-            ui.separator();
 
-            // Opponent
-            ui.label("Opponent:");
-            for &ai in AIType::ALL {
-                if ui
-                    .selectable_label(config.ai_type == ai, ai.label())
-                    .clicked()
-                {
-                    config.ai_type = ai;
-                }
-            }
-            ui.separator();
-
-            // Variant
-            ui.label("Variant:");
+            // Variant — horizontal
             ui.horizontal(|ui| {
+                ui.label("Variant:");
                 if ui
                     .selectable_label(
                         config.collision_rule == CollisionRule::Classic,
@@ -87,50 +143,75 @@ pub fn play_ui(
                     config.collision_rule = CollisionRule::Abrupt;
                 }
             });
-            ui.separator();
+            ui.add_space(2.0);
 
-            // New Game button
-            if ui.button("New Game").clicked() {
+            // Opponent
+            ui.collapsing("Opponent", |ui| {
+                for &ai in AIType::ALL {
+                    if ui
+                        .selectable_label(config.ai_type == ai, ai.label())
+                        .clicked()
+                    {
+                        config.ai_type = ai;
+                    }
+                }
+            });
+
+            ui.add_space(6.0);
+
+            // New Game button — prominent, full width
+            let btn = egui::Button::new(
+                egui::RichText::new("New Game").strong().size(15.0),
+            );
+            if ui
+                .add_sized([ui.available_width(), 32.0], btn)
+                .clicked()
+            {
                 config.start_requested = true;
-                // Also update the board display size
                 board_req.rows = config.rows;
                 board_req.cols = config.cols;
                 board_req.changed = true;
             }
 
+            ui.add_space(4.0);
             ui.separator();
 
-            // Game status
+            // -- Move log --
             if let Some(ref session) = session {
-                ui.label(egui::RichText::new(session.status_text()).strong());
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new("Move Log").strong().size(14.0));
+                ui.add_space(2.0);
 
-                if let Some(collision_pos) = session.last_collision {
-                    let label = pos_to_label_ui(collision_pos, session.cols);
-                    ui.colored_label(
-                        egui::Color32::from_rgb(195, 74, 44),
-                        format!("Collision at {label}!"),
-                    );
-                }
-
-                ui.separator();
-                ui.label("Move Log:");
                 egui::ScrollArea::vertical()
                     .max_height(200.0)
                     .show(ui, |ui| {
-                        for entry in session.move_log.iter().rev() {
-                            let player_str = match entry.player {
-                                Player::Black => "B",
-                                Player::White => "W",
+                        for (i, entry) in session.move_log.iter().enumerate() {
+                            let num = i + 1;
+                            let (marker, color) = match entry.player {
+                                Player::Black => (
+                                    "B",
+                                    egui::Color32::from_rgb(160, 160, 160),
+                                ),
+                                Player::White => (
+                                    "W",
+                                    egui::Color32::from_rgb(230, 220, 200),
+                                ),
                             };
-                            let result = if entry.placed { "" } else { " (collision)" };
-                            ui.label(format!(
-                                "{}: {}{}",
-                                player_str, entry.label, result
-                            ));
+                            let suffix =
+                                if entry.placed { "" } else { " (collision)" };
+                            ui.label(
+                                egui::RichText::new(format!(
+                                    "{num:>2}. [{marker}] {}{suffix}",
+                                    entry.label,
+                                ))
+                                .color(color)
+                                .monospace(),
+                            );
                         }
                     });
             } else {
-                ui.label("Press 'New Game' to start");
+                ui.add_space(20.0);
+                ui.label("Press 'New Game' to start.");
             }
         });
 }

@@ -182,6 +182,7 @@ impl GameSession {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn status_text(&self) -> String {
         if self.game_over {
             match self.winner {

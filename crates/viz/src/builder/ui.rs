@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
-use darkhex_core::game::types::Player;
-
 use super::engine::StrategyBuilder;
 use crate::common::info_state;
 use crate::hex_board::components::{CellState, HexCell, HexClickEvent};
@@ -198,7 +196,7 @@ fn submit_action(session: &mut BuilderSession, input: &str) {
             session.error_msg = None;
             session.action_input.clear();
         }
-        Ok(super::engine::SubmitResult::NextState(_)) => {
+        Ok(super::engine::SubmitResult::NextState) => {
             session.error_msg = None;
             session.action_input.clear();
         }

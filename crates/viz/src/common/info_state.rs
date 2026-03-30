@@ -3,7 +3,6 @@
 //! DarkHex info state format: "P{player_id}\n{grid_rows}"
 //! Grid characters: 'x' (black), 'o' (white), '.' (empty from this player's view)
 
-use darkhex_core::game::state::DarkHexState;
 use darkhex_core::game::types::Player;
 
 /// Parse an info state string into (player_id, grid).
@@ -107,7 +106,7 @@ pub fn is_collision_possible(info: &str) -> bool {
 
 /// Check if an info state is terminal using the game engine.
 pub fn is_terminal(info: &str, rows: usize, cols: usize) -> bool {
-    let (player_id, grid) = parse_info_state(info);
+    let (_player_id, grid) = parse_info_state(info);
     let n = rows * cols;
     if grid.len() != n {
         return false;

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::color::Color;
 
 pub const EMPTY_CELL: Color = Color::srgb(0.357, 0.486, 0.600);

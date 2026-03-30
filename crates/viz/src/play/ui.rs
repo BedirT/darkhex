@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
-use darkhex_core::game::types::{CollisionRule, CollisionInfo, Player};
+use darkhex_core::game::types::{CollisionRule, Player};
 
 use super::ai_players::AIType;
 use super::game_logic::{GameConfig, GameSession};
@@ -20,9 +20,6 @@ pub fn play_ui(
     egui::SidePanel::left("play_controls")
         .default_width(200.0)
         .show(ctx, |ui| {
-            ui.heading("DarkHex");
-            ui.separator();
-
             // Board size
             ui.label("Board Size:");
             let sizes: &[(usize, usize)] = &[(2, 2), (3, 2), (3, 3), (4, 3)];

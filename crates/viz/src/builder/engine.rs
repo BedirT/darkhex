@@ -21,7 +21,7 @@ pub enum SubmitResult {
     /// Strategy is now complete (no more branches).
     Complete,
     /// Moved to next info state.
-    NextState(String),
+    NextState,
 }
 
 /// Strategy builder state machine.
@@ -131,7 +131,7 @@ impl StrategyBuilder {
 
         self.current_info_state = self.action_stack.pop().unwrap();
         self.save_snapshot();
-        Ok(SubmitResult::NextState(self.current_info_state.clone()))
+        Ok(SubmitResult::NextState)
     }
 
     /// Parse user input into (actions, probabilities).

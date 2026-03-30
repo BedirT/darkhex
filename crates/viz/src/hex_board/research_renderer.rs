@@ -8,6 +8,7 @@ use super::components::*;
 use crate::theme;
 
 /// Resource holding hex board layout and entity mappings.
+#[allow(dead_code)]
 #[derive(Resource)]
 pub struct HexBoardState {
     pub layout: HexLayout,
@@ -150,25 +151,6 @@ pub fn spawn_board(
     });
 }
 
-/// Despawn the entire board.
-pub fn despawn_board(
-    mut commands: Commands,
-    board_query: Query<Entity, With<HexBoardMarker>>,
-    label_query: Query<Entity, With<CellLabel>>,
-) {
-    for entity in board_query.iter() {
-        commands.entity(entity).despawn();
-    }
-    // Labels may be children that get despawned with parent,
-    // but despawn orphaned ones too
-    for entity in label_query.iter() {
-        if commands.get_entity(entity).is_ok() {
-            commands.entity(entity).try_despawn();
-        }
-    }
-    commands.remove_resource::<HexBoardState>();
-}
-
 /// Handle hex cell clicks.
 pub fn handle_hex_click(
     windows: Query<&Window>,
@@ -193,16 +175,6 @@ pub fn handle_hex_click(
                 click_events.write(HexClickEvent { pos, hex });
             }
         }
-    }
-}
-
-/// Debug system: log clicks to console.
-pub fn debug_click_log(mut click_events: MessageReader<HexClickEvent>, board: Option<Res<HexBoardState>>) {
-    let Some(board) = board else { return };
-    for event in click_events.read() {
-        let cols = board.cols;
-        let label = pos_to_label(event.pos, cols);
-        info!("Clicked cell {} (pos={}, hex={:?})", label, event.pos, event.hex);
     }
 }
 

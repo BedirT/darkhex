@@ -7,6 +7,7 @@ use rand::Rng;
 pub type Strategy = HashMap<String, Vec<(usize, f32)>>;
 
 /// AI player interface.
+#[allow(dead_code)]
 pub trait AIPlayer: Send + Sync {
     fn select_action(&self, info_state: &str, legal_actions: &[usize]) -> usize;
     fn display_name(&self) -> &str;
@@ -28,6 +29,7 @@ impl AIPlayer for RandomPlayer {
 }
 
 /// Plays according to a pre-computed strategy (from MCCFR or loaded file).
+#[allow(dead_code)]
 pub struct StrategyPlayer {
     strategy: Strategy,
     name: String,

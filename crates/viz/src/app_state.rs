@@ -3,7 +3,6 @@ use bevy::prelude::*;
 #[derive(States, Default, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum AppScreen {
     #[default]
-    MainMenu,
     Play,
     StrategyBuilder,
     StrategyViewer,
@@ -13,5 +12,6 @@ pub enum AppScreen {
 pub enum RenderMode {
     #[default]
     Research,
+    #[allow(dead_code)]
     Game,
 }

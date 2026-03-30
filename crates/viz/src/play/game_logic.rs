@@ -6,6 +6,7 @@ use darkhex_core::game::types::{CollisionInfo, CollisionRule, Player};
 use super::ai_players::{self, AIPlayer, AIType};
 
 /// A move entry in the game log.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct MoveEntry {
     pub player: Player,
@@ -15,6 +16,7 @@ pub struct MoveEntry {
 }
 
 /// Active game session.
+#[allow(dead_code)]
 #[derive(Resource)]
 pub struct GameSession {
     pub state: DarkHexState,

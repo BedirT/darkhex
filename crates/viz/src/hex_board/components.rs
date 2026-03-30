@@ -6,6 +6,7 @@ use hexx::Hex;
 pub struct HexBoardMarker;
 
 /// A hex cell entity. `pos` is the linear index (row * cols + col).
+#[allow(dead_code)]
 #[derive(Component)]
 pub struct HexCell {
     pub hex: Hex,
@@ -26,6 +27,7 @@ pub enum CellState {
 pub struct CellLabel;
 
 /// Event emitted when a hex cell is clicked.
+#[allow(dead_code)]
 #[derive(Message)]
 pub struct HexClickEvent {
     pub pos: usize,

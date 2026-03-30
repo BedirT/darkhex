@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::common::info_state;
 
 /// A node in the strategy tree.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct TreeNode {
     pub id: usize,
@@ -16,6 +17,7 @@ pub struct TreeNode {
 }
 
 /// An edge from a tree node to a child.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct TreeEdge {
     pub action: usize,
@@ -32,6 +34,7 @@ pub enum EdgeOutcome {
 }
 
 /// The complete strategy tree.
+#[allow(dead_code)]
 pub struct StrategyTree {
     pub nodes: Vec<TreeNode>,
     pub root: usize,

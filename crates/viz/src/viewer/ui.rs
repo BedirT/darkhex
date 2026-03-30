@@ -121,7 +121,6 @@ pub fn viewer_ui(
                 // Actions at this node
                 if !node.actions.is_empty() {
                     ui.label("Actions:");
-                    let selected_before = session.selected_node;
                     for edge in &node.actions {
                         let outcome_str = match edge.outcome {
                             EdgeOutcome::Placed => "",

@@ -14,3 +14,4 @@ darkhex-core = { path = "../core" }
 bevy = "0.18"
 hexx = { version = "0.24", features = ["mesh"] }
 bevy_egui = "0.39"
+rand = "0.8"

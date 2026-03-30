@@ -1,0 +1,204 @@
+{
+  "experiment": "exp003_4x3_mccfr",
+  "config": {
+    "rows": 4,
+    "cols": 3,
+    "seed": 42,
+    "epsilon": 0.6,
+    "sampling": "Outcome",
+    "checkpoints": [
+      10000,
+      50000,
+      100000,
+      500000,
+      1000000,
+      2000000,
+      5000000,
+      10000000
+    ]
+  },
+  "pone_precompute_time_s": 471.7,
+  "pone_states": 59027,
+  "vanilla_total_time_s": 31131.5,
+  "pone_total_time_s": 5414.6,
+  "vanilla_final_info_states": 162528,
+  "pone_final_info_states": 1,
+  "records": [
+    {
+      "condition": "vanilla",
+      "iterations": 10000,
+      "exploitability": 0.998122563172456,
+      "br_black": 0.9962449374593694,
+      "br_white": 1.0000001888855425,
+      "info_states": 35329,
+      "solve_time_s": 0.9,
+      "expl_time_s": 666.1,
+      "throughput_iter_s": 11747.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 50000,
+      "exploitability": 0.9986236365852312,
+      "br_black": 0.9972471684157869,
+      "br_white": 1.0000001047546756,
+      "info_states": 74454,
+      "solve_time_s": 4.0,
+      "expl_time_s": 661.8,
+      "throughput_iter_s": 12489.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 100000,
+      "exploitability": 0.9986921696479585,
+      "br_black": 0.9973843127359637,
+      "br_white": 1.0000000265599533,
+      "info_states": 92922,
+      "solve_time_s": 7.7,
+      "expl_time_s": 649.1,
+      "throughput_iter_s": 13041.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 500000,
+      "exploitability": 0.9992930306048525,
+      "br_black": 0.9985859126505021,
+      "br_white": 1.000000148559203,
+      "info_states": 127961,
+      "solve_time_s": 34.1,
+      "expl_time_s": 645.6,
+      "throughput_iter_s": 14675.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 1000000,
+      "exploitability": 0.9993890653606028,
+      "br_black": 0.9987780556526081,
+      "br_white": 1.0000000750685976,
+      "info_states": 139820,
+      "solve_time_s": 66.9,
+      "expl_time_s": 645.7,
+      "throughput_iter_s": 14950.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 2000000,
+      "exploitability": 0.9957129003317196,
+      "br_black": 0.991425623607696,
+      "br_white": 1.000000177055743,
+      "info_states": 148342,
+      "solve_time_s": 134.2,
+      "expl_time_s": 1601.2,
+      "throughput_iter_s": 14898.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 5000000,
+      "exploitability": 0.9980201729109475,
+      "br_black": 0.9960401928809359,
+      "br_white": 1.000000152940959,
+      "info_states": 156190,
+      "solve_time_s": 24549.4,
+      "expl_time_s": 665.0,
+      "throughput_iter_s": 204.0
+    },
+    {
+      "condition": "vanilla",
+      "iterations": 10000000,
+      "exploitability": 0.9981832086725523,
+      "br_black": 0.99636628932558,
+      "br_white": 1.0000001280195245,
+      "info_states": 162528,
+      "solve_time_s": 24926.7,
+      "expl_time_s": 669.8,
+      "throughput_iter_s": 401.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 10000,
+      "exploitability": 0.995093967522882,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000002026907326,
+      "info_states": 1,
+      "solve_time_s": 0.1,
+      "expl_time_s": 666.4,
+      "throughput_iter_s": 93114.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 50000,
+      "exploitability": 0.9950939716698534,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000002109846753,
+      "info_states": 1,
+      "solve_time_s": 0.5,
+      "expl_time_s": 663.6,
+      "throughput_iter_s": 92793.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 100000,
+      "exploitability": 0.9950939695346877,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000002067143439,
+      "info_states": 1,
+      "solve_time_s": 1.1,
+      "expl_time_s": 662.7,
+      "throughput_iter_s": 92792.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 500000,
+      "exploitability": 0.99509392955733,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000001267596286,
+      "info_states": 1,
+      "solve_time_s": 5.4,
+      "expl_time_s": 665.3,
+      "throughput_iter_s": 92417.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 1000000,
+      "exploitability": 0.995093945040789,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000001577265465,
+      "info_states": 1,
+      "solve_time_s": 10.8,
+      "expl_time_s": 662.2,
+      "throughput_iter_s": 92573.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 2000000,
+      "exploitability": 0.9950939547005108,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.00000017704599,
+      "info_states": 1,
+      "solve_time_s": 21.6,
+      "expl_time_s": 662.4,
+      "throughput_iter_s": 92712.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 5000000,
+      "exploitability": 0.9950939247436751,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000001171323187,
+      "info_states": 1,
+      "solve_time_s": 53.9,
+      "expl_time_s": 662.4,
+      "throughput_iter_s": 92842.0
+    },
+    {
+      "condition": "pone",
+      "iterations": 10000000,
+      "exploitability": 0.9950939684270473,
+      "br_black": 0.9901877323550314,
+      "br_white": 1.0000002044990632,
+      "info_states": 1,
+      "solve_time_s": 107.7,
+      "expl_time_s": 662.0,
+      "throughput_iter_s": 92818.0
+    }
+  ]
+}

@@ -82,6 +82,71 @@ uv run python experiments/exp003_4x3_mccfr.py
 
 ## Results
 
-_To be filled after running the experiment._
+### Vanilla MCCFR (no pONE)
 
-## Status: ready to run
+| Iterations | Exploitability | Info States | Solve Time | Expl Time |
+|-----------|---------------|-------------|------------|-----------|
+| 10,000 | 0.9981 | 35,329 | 1s | 666s |
+| 50,000 | 0.9986 | 74,454 | 4s | 662s |
+| 100,000 | 0.9987 | 92,922 | 8s | 649s |
+| 500,000 | 0.9993 | 127,961 | 34s | 646s |
+| 1,000,000 | 0.9994 | 139,820 | 67s | 646s |
+| 2,000,000 | 0.9957 | 148,342 | 134s | 1,601s |
+| 5,000,000 | 0.9980 | 156,190 | — | 665s |
+| 10,000,000 | 0.9982 | 162,528 | — | 670s |
+
+**Note**: Solve times at 5M/10M are inflated by machine sleep. Actual MCCFR
+throughput was ~12,000–15,000 iter/s throughout.
+
+### pONE Condition: INVALID
+
+pONE pruned the entire game tree. Only 1 info state discovered across all
+iterations. Exploitability constant at 0.995094.
+
+**Root cause**: The pONE algorithm has a correctness bug. It checks each
+hidden-stone configuration independently via minimax (∀ config, ∃ winning
+strategy), but pONE requires a SINGLE strategy that wins against ALL
+configurations simultaneously (∃ strategy, ∀ config it wins). On 4x3,
+this falsely flags P1's root info state as pONE, causing the solver to
+prune the entire tree immediately.
+
+See "pONE Bug" section below.
+
+### Hypothesis Evaluation
+
+**H1 (REJECTED):** Exploitability remains at ~0.998 after 10M iterations.
+OS-MCCFR has not meaningfully converged on 4x3. The game tree has 31.9M
+states; each OS-MCCFR iteration samples one path, so 10M iterations
+provides inadequate coverage. Need 100M–1B iterations or a different
+algorithm (Deep CFR, DREAM, or External Sampling with variance reduction).
+
+**H2 (INVALID):** pONE condition is invalid due to the algorithm bug.
+Cannot evaluate pruning effect until the bug is fixed.
+
+**H3 (PARTIAL):** Vanilla discovered 162,528 canonical info states out of
+~184,000 expected. This is 88% coverage, confirming isomorphic reduction
+works at scale. Full coverage needs more iterations.
+
+### pONE Bug Analysis
+
+The `is_pone` function (src/solver/pone.rs) checks each belief-consistent
+board independently via perfect-information minimax. This is necessary but
+not sufficient for probability-1 win detection:
+
+```
+Implemented:  ∀ hidden_config, ∃ strategy: wins(strategy, hidden_config)
+Required:     ∃ strategy, ∀ hidden_config: wins(strategy, hidden_config)
+```
+
+On 4x3, P1 root (White, empty view, 1 hidden Black stone) is falsely
+flagged because P1 can beat each of the 12 possible Black-stone positions
+using different strategies, but no single strategy works against all 12.
+
+Affected boards (P1 root false positive): 3x2, 4x3 (rows > cols).
+Unaffected: 2x2, 2x3, 3x3, 3x4 (rows ≤ cols).
+
+**Fix needed**: Replace per-configuration minimax with a belief-space
+search or imperfect-information minimax that finds a single strategy
+valid across all belief-consistent boards.
+
+## Status: completed (vanilla valid, pONE invalid)

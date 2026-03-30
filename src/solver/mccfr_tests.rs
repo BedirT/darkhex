@@ -37,13 +37,14 @@ fn outcome_runs() {
 }
 
 #[test]
-fn outcome_discovers_all_2x2_info_states() {
+fn outcome_discovers_all_2x2_canonical_info_states() {
+    // With canonical reduction, symmetric info states are merged (~half of 42).
     let mut solver =
         MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), Some(42)).unwrap();
     solver.solve(10000);
     let n = solver.num_info_states();
-    assert!(n >= 40, "expected >=40 info states, got {n}");
-    assert!(n <= 50, "expected <=50 info states, got {n}");
+    assert!(n >= 18, "expected >=18 canonical info states, got {n}");
+    assert!(n <= 25, "expected <=25 canonical info states, got {n}");
 }
 
 #[test]

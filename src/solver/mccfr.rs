@@ -255,9 +255,23 @@ impl MCCFRSolver {
         }
 
         let actions: Vec<usize> = actions_buf.clone();
-        let info_key = state.rs_info_state_string(player);
-        self.get_strategy(&info_key, &actions, sigma_buf);
-        let sigma: Vec<f32> = sigma_buf.clone();
+        let n = self.rows * self.cols;
+        let (info_key, is_canonical) = state.rs_canonical_info_state(player);
+
+        // Canonical actions for InfoStateData storage
+        let canonical_actions: Vec<usize> = if is_canonical {
+            actions.clone()
+        } else {
+            actions.iter().rev().map(|&a| n - 1 - a).collect()
+        };
+        self.get_strategy(&info_key, &canonical_actions, sigma_buf);
+
+        // Map sigma from canonical to original action order
+        let sigma: Vec<f32> = if is_canonical {
+            sigma_buf.clone()
+        } else {
+            sigma_buf.iter().rev().cloned().collect()
+        };
 
         if player == update_player {
             let mut values = vec![0.0f32; num_actions];
@@ -272,8 +286,9 @@ impl MCCFRSolver {
 
             let data = self.info_states.get_mut(&info_key).unwrap();
             for i in 0..num_actions {
-                data.regret_sum[i] += values[i] - v;
-                data.strategy_sum[i] += sigma[i];
+                let ci = if is_canonical { i } else { num_actions - 1 - i };
+                data.regret_sum[ci] += values[i] - v;
+                data.strategy_sum[ci] += sigma[i];
             }
             v
         } else {
@@ -321,9 +336,23 @@ impl MCCFRSolver {
         }
 
         let actions: Vec<usize> = actions_buf.clone();
-        let info_key = state.rs_info_state_string(player);
-        self.get_strategy(&info_key, &actions, sigma_buf);
-        let sigma: Vec<f32> = sigma_buf.clone();
+        let n = self.rows * self.cols;
+        let (info_key, is_canonical) = state.rs_canonical_info_state(player);
+
+        // Canonical actions for InfoStateData storage
+        let canonical_actions: Vec<usize> = if is_canonical {
+            actions.clone()
+        } else {
+            actions.iter().rev().map(|&a| n - 1 - a).collect()
+        };
+        self.get_strategy(&info_key, &canonical_actions, sigma_buf);
+
+        // Map sigma from canonical to original action order
+        let sigma: Vec<f32> = if is_canonical {
+            sigma_buf.clone()
+        } else {
+            sigma_buf.iter().rev().cloned().collect()
+        };
 
         // Sampling policy: epsilon-greedy at update player, sigma at opponent
         let is_update = player == update_player;
@@ -378,18 +407,20 @@ impl MCCFRSolver {
             // Regret: r(I, a) += cf_action_value(a) - cf_value
             let data = self.info_states.get_mut(&info_key).unwrap();
             for i in 0..num_actions {
+                let ci = if is_canonical { i } else { num_actions - 1 - i };
                 if i == a_idx {
-                    data.regret_sum[i] += cf_action_value - cf_value;
+                    data.regret_sum[ci] += cf_action_value - cf_value;
                 } else {
                     // Unsampled actions have cf_action_value = 0
-                    data.regret_sum[i] -= cf_value;
+                    data.regret_sum[ci] -= cf_value;
                 }
             }
 
             // Average strategy: reach-weighted
             let strat_weight = pi_i / pi_sample;
             for i in 0..num_actions {
-                data.strategy_sum[i] += strat_weight * sigma[i];
+                let ci = if is_canonical { i } else { num_actions - 1 - i };
+                data.strategy_sum[ci] += strat_weight * sigma[i];
             }
         }
 

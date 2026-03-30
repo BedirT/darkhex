@@ -6,6 +6,7 @@ use rand::{Rng, SeedableRng};
 
 use crate::game::state::DarkHexState;
 use crate::game::types::Player;
+use crate::solver::pone::PoneDb;
 
 /// MCCFR sampling variant.
 #[pyclass(eq, eq_int)]
@@ -24,13 +25,17 @@ pub enum Sampling {
 struct InfoStateData {
     regret_sum: Vec<f32>,
     strategy_sum: Vec<f32>,
+    /// Actual cell indices corresponding to each slot (sorted ascending).
+    actions: Vec<usize>,
 }
 
 impl InfoStateData {
-    fn new(num_actions: usize) -> Self {
+    fn new(actions: &[usize]) -> Self {
+        let n = actions.len();
         Self {
-            regret_sum: vec![0.0; num_actions],
-            strategy_sum: vec![0.0; num_actions],
+            regret_sum: vec![0.0; n],
+            strategy_sum: vec![0.0; n],
+            actions: actions.to_vec(),
         }
     }
 }
@@ -81,6 +86,8 @@ pub struct MCCFRSolver {
     sampling: Sampling,
     epsilon: f32,
     rng: SmallRng,
+    /// Optional pONE database for pruning determined subtrees.
+    pone_db: Option<PoneDb>,
 }
 
 #[pymethods]
@@ -114,7 +121,17 @@ impl MCCFRSolver {
             sampling: sampling_mode,
             epsilon: eps,
             rng: SmallRng::seed_from_u64(seed.unwrap_or(42)),
+            pone_db: None,
         })
+    }
+
+    /// Set an optional pONE database for pruning determined subtrees.
+    ///
+    /// When set, MCCFR will skip traversal into info states where the
+    /// current player has a probability-1 win, returning the determined
+    /// outcome immediately.
+    fn set_pone_db(&mut self, db: PoneDb) {
+        self.pone_db = Some(db);
     }
 
     /// Run `n` iterations of MCCFR.
@@ -180,10 +197,10 @@ impl MCCFRSolver {
                 continue;
             }
             let probs: Vec<(usize, f32)> = data
-                .strategy_sum
+                .actions
                 .iter()
-                .enumerate()
-                .map(|(i, &s)| (i, s / sum))
+                .zip(data.strategy_sum.iter())
+                .map(|(&action, &s)| (action, s / sum))
                 .filter(|(_, p)| *p > 1e-6)
                 .collect();
             if !probs.is_empty() {
@@ -193,8 +210,15 @@ impl MCCFRSolver {
         result
     }
 
+    /// Get the current strategy at an info state.
+    ///
+    /// Accepts both canonical and non-canonical info state strings.
     fn get_current_strategy(&self, info_state: &str) -> Option<Vec<f32>> {
-        self.info_states.get(info_state).map(|data| {
+        // Canonicalize before lookup — solver stores canonical keys only.
+        let canon = crate::solver::pone::canonicalize_info_state_str(
+            info_state, self.rows, self.cols,
+        );
+        self.info_states.get(&canon).map(|data| {
             let mut sigma = Vec::new();
             regret_matching(&data.regret_sum, &mut sigma);
             sigma
@@ -217,15 +241,10 @@ impl MCCFRSolver {
 // --- Traversal implementations (pure Rust, no PyO3) ---
 
 impl MCCFRSolver {
-    fn get_strategy(
-        &mut self,
-        info_key: &str,
-        num_actions: usize,
-        sigma_buf: &mut Vec<f32>,
-    ) {
+    fn get_strategy(&mut self, info_key: &str, actions: &[usize], sigma_buf: &mut Vec<f32>) {
         if !self.info_states.contains_key(info_key) {
             self.info_states
-                .insert(info_key.to_string(), InfoStateData::new(num_actions));
+                .insert(info_key.to_string(), InfoStateData::new(actions));
         }
         regret_matching(&self.info_states[info_key].regret_sum, sigma_buf);
     }
@@ -244,16 +263,44 @@ impl MCCFRSolver {
         }
 
         let player = state.rs_current_player();
+
+        // pONE pruning (thesis §4.2): treat probability-1 win states as
+        // pseudo-terminals. This substitutes the optimal value (±1) for the
+        // subtree, skipping regret/strategy updates within it. Valid because
+        // at Nash equilibrium the value at a pONE state IS ±1, so the
+        // surrogate is exact for converged strategies. The thesis reports
+        // 20% memory savings and 8.2% fewer missed wins on 4x3.
+        if let Some(ref db) = self.pone_db {
+            let (canon, _) = state.rs_canonical_info_state(player);
+            if db.rs_contains(&canon) {
+                return if player == update_player { 1.0 } else { -1.0 };
+            }
+        }
+
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {
             return 0.0;
         }
 
-        let info_key = state.rs_info_state_string(player);
-        self.get_strategy(&info_key, num_actions, sigma_buf);
-        let sigma: Vec<f32> = sigma_buf.clone();
         let actions: Vec<usize> = actions_buf.clone();
+        let n = self.rows * self.cols;
+        let (info_key, is_canonical) = state.rs_canonical_info_state(player);
+
+        // Canonical actions for InfoStateData storage
+        let canonical_actions: Vec<usize> = if is_canonical {
+            actions.clone()
+        } else {
+            actions.iter().rev().map(|&a| n - 1 - a).collect()
+        };
+        self.get_strategy(&info_key, &canonical_actions, sigma_buf);
+
+        // Map sigma from canonical to original action order
+        let sigma: Vec<f32> = if is_canonical {
+            sigma_buf.clone()
+        } else {
+            sigma_buf.iter().rev().cloned().collect()
+        };
 
         if player == update_player {
             let mut values = vec![0.0f32; num_actions];
@@ -268,8 +315,9 @@ impl MCCFRSolver {
 
             let data = self.info_states.get_mut(&info_key).unwrap();
             for i in 0..num_actions {
-                data.regret_sum[i] += values[i] - v;
-                data.strategy_sum[i] += sigma[i];
+                let ci = if is_canonical { i } else { num_actions - 1 - i };
+                data.regret_sum[ci] += values[i] - v;
+                data.strategy_sum[ci] += sigma[i];
             }
             v
         } else {
@@ -310,16 +358,39 @@ impl MCCFRSolver {
         }
 
         let player = state.rs_current_player();
+
+        // pONE pruning (same rationale as external_sampling above)
+        if let Some(ref db) = self.pone_db {
+            let (canon, _) = state.rs_canonical_info_state(player);
+            if db.rs_contains(&canon) {
+                return if player == update_player { 1.0 } else { -1.0 };
+            }
+        }
+
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {
             return 0.0;
         }
 
-        let info_key = state.rs_info_state_string(player);
-        self.get_strategy(&info_key, num_actions, sigma_buf);
-        let sigma: Vec<f32> = sigma_buf.clone();
         let actions: Vec<usize> = actions_buf.clone();
+        let n = self.rows * self.cols;
+        let (info_key, is_canonical) = state.rs_canonical_info_state(player);
+
+        // Canonical actions for InfoStateData storage
+        let canonical_actions: Vec<usize> = if is_canonical {
+            actions.clone()
+        } else {
+            actions.iter().rev().map(|&a| n - 1 - a).collect()
+        };
+        self.get_strategy(&info_key, &canonical_actions, sigma_buf);
+
+        // Map sigma from canonical to original action order
+        let sigma: Vec<f32> = if is_canonical {
+            sigma_buf.clone()
+        } else {
+            sigma_buf.iter().rev().cloned().collect()
+        };
 
         // Sampling policy: epsilon-greedy at update player, sigma at opponent
         let is_update = player == update_player;
@@ -374,18 +445,20 @@ impl MCCFRSolver {
             // Regret: r(I, a) += cf_action_value(a) - cf_value
             let data = self.info_states.get_mut(&info_key).unwrap();
             for i in 0..num_actions {
+                let ci = if is_canonical { i } else { num_actions - 1 - i };
                 if i == a_idx {
-                    data.regret_sum[i] += cf_action_value - cf_value;
+                    data.regret_sum[ci] += cf_action_value - cf_value;
                 } else {
                     // Unsampled actions have cf_action_value = 0
-                    data.regret_sum[i] -= cf_value;
+                    data.regret_sum[ci] -= cf_value;
                 }
             }
 
             // Average strategy: reach-weighted
             let strat_weight = pi_i / pi_sample;
             for i in 0..num_actions {
-                data.strategy_sum[i] += strat_weight * sigma[i];
+                let ci = if is_canonical { i } else { num_actions - 1 - i };
+                data.strategy_sum[ci] += strat_weight * sigma[i];
             }
         }
 

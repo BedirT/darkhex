@@ -32,6 +32,18 @@ class TestEnumerateGameTree:
         stats = enumerate_game_tree(2, 2)
         r = repr(stats)
         assert "info_states=42" in r
+        assert "canonical=" in r
+
+    def test_2x2_canonical_roughly_half(self):
+        stats = enumerate_game_tree(2, 2)
+        assert stats.canonical_info_states < stats.total_info_states
+        assert stats.canonical_info_states >= 20
+        assert stats.canonical_info_states <= 24
+
+    def test_3x2_canonical_roughly_half(self):
+        stats = enumerate_game_tree(3, 2)
+        assert stats.canonical_info_states < stats.total_info_states
+        assert stats.canonical_info_states >= 195
 
 
 class TestMCCFRCoverage:
@@ -44,23 +56,23 @@ class TestMCCFRCoverage:
     """
 
     def test_outcome_2x2_full_coverage(self):
-        """2x2 is small enough for full coverage."""
-        expected = enumerate_game_tree(2, 2).total_info_states
+        """2x2 is small enough for full canonical coverage."""
+        expected = enumerate_game_tree(2, 2).canonical_info_states
         solver = MCCFRSolver(2, 2, Sampling.Outcome, epsilon=0.6, seed=42)
         solver.solve(10000)
         assert solver.num_info_states() == expected
 
     def test_outcome_3x2_high_coverage(self):
-        """3x2: expect >85% coverage (some opponent zero-prob paths missed)."""
-        expected = enumerate_game_tree(3, 2).total_info_states
+        """3x2: expect >85% canonical coverage."""
+        expected = enumerate_game_tree(3, 2).canonical_info_states
         solver = MCCFRSolver(3, 2, Sampling.Outcome, epsilon=0.6, seed=42)
         solver.solve(20000)
         coverage = solver.num_info_states() / expected
         assert coverage > 0.85, f"coverage {coverage:.1%} below 85%"
 
-    def test_external_2x2_partial_coverage(self):
-        """External misses more states (zero-prob at opponent nodes)."""
-        expected = enumerate_game_tree(2, 2).total_info_states
+    def test_external_2x2_coverage(self):
+        """External with canonical reduction achieves full coverage on 2x2."""
+        expected = enumerate_game_tree(2, 2).canonical_info_states
         solver = MCCFRSolver(2, 2, Sampling.External, seed=42)
         solver.solve(10000)
-        assert solver.num_info_states() < expected  # known gap
+        assert solver.num_info_states() == expected

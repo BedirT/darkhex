@@ -178,8 +178,7 @@ impl DarkHexState {
                 CollisionRule::Abrupt => {
                     // ADH: turn wasted, switch player
                     self.stones_placed += 1;
-                    self.current_player =
-                        Player::from_index(self.stones_placed % 2);
+                    self.current_player = Player::from_index(self.stones_placed % 2);
                 }
             }
             false
@@ -291,6 +290,60 @@ impl DarkHexState {
     }
 
     #[inline]
+    pub fn rs_rows(&self) -> usize {
+        self.board.rows
+    }
+
+    #[inline]
+    pub fn rs_cols(&self) -> usize {
+        self.board.cols
+    }
+
+    #[inline]
+    pub fn rs_size(&self) -> usize {
+        self.board.size()
+    }
+
+    /// Returns (canonical_info_state_string, is_original_the_canonical_form).
+    ///
+    /// The canonical form is the lexicographically smaller of the original
+    /// info state and its 180° rotation. Under rotation, cell at position
+    /// `pos` maps to `n-1-pos`, which reverses the grid character order.
+    pub fn rs_canonical_info_state(&self, player: Player) -> (String, bool) {
+        let original = self.rs_info_state_string(player);
+        let rotated = self.rs_rotated_info_state_string(player);
+        if original <= rotated {
+            (original, true)
+        } else {
+            (rotated, false)
+        }
+    }
+
+    /// 180°-rotated info state: reads cell at position `n-1-pos` for each grid position.
+    fn rs_rotated_info_state_string(&self, player: Player) -> String {
+        let pi = player.index();
+        let n = self.board.size();
+        let mut s = String::with_capacity(3 + n + self.board.rows);
+        s.push('P');
+        s.push(char::from(b'0' + pi as u8));
+        s.push('\n');
+        for row in 0..self.board.rows {
+            if row > 0 {
+                s.push('\n');
+            }
+            for col in 0..self.board.cols {
+                let pos = row * self.board.cols + col;
+                let rotated_pos = n - 1 - pos;
+                s.push(match self.player_views[pi][rotated_pos] {
+                    None => '.',
+                    Some(c) => c.to_char(),
+                });
+            }
+        }
+        s
+    }
+
+    #[inline]
     pub fn rs_current_player(&self) -> Player {
         self.current_player
     }
@@ -332,14 +385,12 @@ impl DarkHexState {
             self.current_player = Player::from_index(self.stones_placed % 2);
             true
         } else {
-            self.player_views[pi][action] =
-                Some(Cell::from_player(player.opponent()));
+            self.player_views[pi][action] = Some(Cell::from_player(player.opponent()));
             match self.collision_rule {
                 CollisionRule::Classic => {}
                 CollisionRule::Abrupt => {
                     self.stones_placed += 1;
-                    self.current_player =
-                        Player::from_index(self.stones_placed % 2);
+                    self.current_player = Player::from_index(self.stones_placed % 2);
                 }
             }
             false

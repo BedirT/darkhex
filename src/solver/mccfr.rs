@@ -210,8 +210,15 @@ impl MCCFRSolver {
         result
     }
 
+    /// Get the current strategy at an info state.
+    ///
+    /// Accepts both canonical and non-canonical info state strings.
     fn get_current_strategy(&self, info_state: &str) -> Option<Vec<f32>> {
-        self.info_states.get(info_state).map(|data| {
+        // Canonicalize before lookup — solver stores canonical keys only.
+        let canon = crate::solver::pone::canonicalize_info_state_str(
+            info_state, self.rows, self.cols,
+        );
+        self.info_states.get(&canon).map(|data| {
             let mut sigma = Vec::new();
             regret_matching(&data.regret_sum, &mut sigma);
             sigma

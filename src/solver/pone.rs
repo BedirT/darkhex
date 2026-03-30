@@ -165,16 +165,26 @@ impl PoneDb {
 
 /// Canonicalize an info state string by comparing it with its 180° rotation.
 /// Returns the lexicographically smaller of (original, rotated).
-fn canonicalize_info_state_str(info_state: &str, rows: usize, cols: usize) -> String {
+///
+/// If the input is malformed (wrong length, missing prefix), returns
+/// the input unchanged rather than panicking.
+pub fn canonicalize_info_state_str(info_state: &str, rows: usize, cols: usize) -> String {
     // Format: "P{d}\n{grid}" where grid has \n-separated rows
-    let prefix = &info_state[..3]; // "P0\n" or "P1\n"
+    let n = rows * cols;
+    if info_state.len() < 3 || !info_state.starts_with('P') {
+        return info_state.to_string();
+    }
     let grid = &info_state[3..];
 
     // Extract cell characters (skip newlines), reverse, rebuild
     let cells: Vec<char> = grid.chars().filter(|&c| c != '\n').collect();
+    if cells.len() != n {
+        return info_state.to_string(); // wrong dimension — return as-is
+    }
     let reversed: Vec<char> = cells.iter().rev().cloned().collect();
 
     // Rebuild rotated grid with row breaks
+    let prefix = &info_state[..3];
     let mut rotated = String::with_capacity(info_state.len());
     rotated.push_str(prefix);
     for row in 0..rows {

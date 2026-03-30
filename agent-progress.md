@@ -5,15 +5,19 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
 - Date: 2026-03-30
-- EXP-003: MCCFR on 4x3 CDH (thesis headline board)
-  - Vanilla: exploitability ~0.998 at 10M iterations — NOT converged
-  - 162,528 canonical info states discovered (88% of ~184k expected)
-  - Throughput: ~12–15k iter/s, exploitability ~11 min/call
-  - pONE condition INVALID: bug prunes entire tree (see Failed Approaches)
-- pONE bug discovered: per-config minimax ≠ belief-space minimax
-  - ∀config ∃strategy (implemented) vs ∃strategy ∀config (required)
-  - False positives on non-square boards (rows > cols → P1 root flagged)
-  - Affects 3x2, 4x3; does NOT affect 2x2, 3x3, 2x3, 3x4
+- Fixed pONE bug: AND-OR belief-space search replaces per-config minimax
+  - P1 root on 4x3 no longer falsely flagged; 31% actual info state reduction
+  - Ported from old Python `ryan_alg` (PONE/pone.py) to Rust
+- EXP-003 v2: MCCFR on 4x3 CDH up to 100M iterations
+  - Vanilla: expl 0.985 at 100M (slow convergence, 171k canonical info states)
+  - pONE: expl 1.000 at 100M (WORSE — pruned subtrees lack stored strategies)
+  - pONE reduces info states 31% (119k vs 172k), throughput +10%
+  - SIP/SIP+ on 100M: no improvement — strategy not converged enough
+  - Throughput: 100–134k iter/s (release, M-series Mac)
+- Cherry-picked SIP/SIP+ implementation (thesis §4.4–4.5)
+- Key thesis discovery: 0.002 epsilon used 1B iters + SIP+ + Ab-BR (weaker metric)
+  - Our clairvoyant BR is a stricter upper bound
+- 117 tests (54 Rust + 63 Python) + 35 SIP tests = 152 total, all passing
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -35,15 +39,17 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] pONE belief-space precomputation (probability-1 win state pruning)
 - [x] Fixed strategy-action index bug in get_average_strategy()
 - [x] 117 tests (54 Rust + 63 Python), all passing
-- [x] EXP-003: 4x3 MCCFR convergence (vanilla valid, pONE invalid due to bug)
+- [x] EXP-003: 4x3 MCCFR convergence (100M iters, pONE fixed, SIP tested)
+- [x] pONE AND-OR fix: belief-space search replaces per-config minimax
+- [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
 
 ## Open PR
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
-- [ ] Fix pONE bug: replace per-config minimax with belief-space search
-- [ ] Scale MCCFR: 100M+ iterations on 4x3, or switch to External Sampling with variance reduction
-- [ ] SIP/SIP+ policy simplification (thesis novel contribution)
+- [ ] Fix pONE-MCCFR integration: output strategies for pruned subtrees (not just prune)
+- [ ] Run 1B iterations on 4x3 (thesis baseline — ~2.5h MCCFR at 120k iter/s)
+- [ ] Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
 - [ ] Deep CFR or ReBeL prototype (neural approach may converge faster on 4x3)
 
 ## Decisions Made

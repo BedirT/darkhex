@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use game::enumerate::{enumerate_game_tree, GameTreeStats};
 use game::state::DarkHexState;
 use game::types::{CollisionInfo, CollisionRule, Player};
+use solver::exploitability::{best_response_values, exploitability};
 use solver::mccfr::{MCCFRSolver, Sampling};
 
 /// DarkHex game engine and solver, implemented in Rust.
@@ -20,5 +21,7 @@ fn _engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<MCCFRSolver>()?;
     m.add_class::<GameTreeStats>()?;
     m.add_function(wrap_pyfunction!(enumerate_game_tree, m)?)?;
+    m.add_function(wrap_pyfunction!(exploitability, m)?)?;
+    m.add_function(wrap_pyfunction!(best_response_values, m)?)?;
     Ok(())
 }

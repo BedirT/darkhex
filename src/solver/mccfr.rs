@@ -249,6 +249,25 @@ impl MCCFRSolver {
         regret_matching(&self.info_states[info_key].regret_sum, sigma_buf);
     }
 
+    /// Register a uniform strategy for a pONE info state.
+    ///
+    /// This ensures `get_average_strategy()` includes pONE states, so
+    /// exploitability can evaluate them instead of falling back to an
+    /// empty/default strategy. The uniform strategy is correct: at a
+    /// pONE state the player wins regardless of action choice.
+    fn register_pone_strategy(&mut self, info_key: &str, actions: &[usize]) {
+        self.info_states
+            .entry(info_key.to_string())
+            .or_insert_with(|| {
+                let n = actions.len();
+                InfoStateData {
+                    regret_sum: vec![0.0; n],
+                    strategy_sum: vec![1.0; n], // uniform: all actions equally good
+                    actions: actions.to_vec(),
+                }
+            });
+    }
+
     // --- External Sampling ---
 
     fn external_sampling(
@@ -263,19 +282,6 @@ impl MCCFRSolver {
         }
 
         let player = state.rs_current_player();
-
-        // pONE pruning (thesis §4.2): treat probability-1 win states as
-        // pseudo-terminals. This substitutes the optimal value (±1) for the
-        // subtree, skipping regret/strategy updates within it. Valid because
-        // at Nash equilibrium the value at a pONE state IS ±1, so the
-        // surrogate is exact for converged strategies. The thesis reports
-        // 20% memory savings and 8.2% fewer missed wins on 4x3.
-        if let Some(ref db) = self.pone_db {
-            let (canon, _) = state.rs_canonical_info_state(player);
-            if db.rs_contains(&canon) {
-                return if player == update_player { 1.0 } else { -1.0 };
-            }
-        }
 
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
@@ -293,6 +299,7 @@ impl MCCFRSolver {
         } else {
             actions.iter().rev().map(|&a| n - 1 - a).collect()
         };
+
         self.get_strategy(&info_key, &canonical_actions, sigma_buf);
 
         // Map sigma from canonical to original action order
@@ -359,14 +366,6 @@ impl MCCFRSolver {
 
         let player = state.rs_current_player();
 
-        // pONE pruning (same rationale as external_sampling above)
-        if let Some(ref db) = self.pone_db {
-            let (canon, _) = state.rs_canonical_info_state(player);
-            if db.rs_contains(&canon) {
-                return if player == update_player { 1.0 } else { -1.0 };
-            }
-        }
-
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {
@@ -383,6 +382,7 @@ impl MCCFRSolver {
         } else {
             actions.iter().rev().map(|&a| n - 1 - a).collect()
         };
+
         self.get_strategy(&info_key, &canonical_actions, sigma_buf);
 
         // Map sigma from canonical to original action order

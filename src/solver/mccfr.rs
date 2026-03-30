@@ -24,13 +24,17 @@ pub enum Sampling {
 struct InfoStateData {
     regret_sum: Vec<f32>,
     strategy_sum: Vec<f32>,
+    /// Actual cell indices corresponding to each slot (sorted ascending).
+    actions: Vec<usize>,
 }
 
 impl InfoStateData {
-    fn new(num_actions: usize) -> Self {
+    fn new(actions: &[usize]) -> Self {
+        let n = actions.len();
         Self {
-            regret_sum: vec![0.0; num_actions],
-            strategy_sum: vec![0.0; num_actions],
+            regret_sum: vec![0.0; n],
+            strategy_sum: vec![0.0; n],
+            actions: actions.to_vec(),
         }
     }
 }
@@ -180,10 +184,10 @@ impl MCCFRSolver {
                 continue;
             }
             let probs: Vec<(usize, f32)> = data
-                .strategy_sum
+                .actions
                 .iter()
-                .enumerate()
-                .map(|(i, &s)| (i, s / sum))
+                .zip(data.strategy_sum.iter())
+                .map(|(&action, &s)| (action, s / sum))
                 .filter(|(_, p)| *p > 1e-6)
                 .collect();
             if !probs.is_empty() {
@@ -220,12 +224,12 @@ impl MCCFRSolver {
     fn get_strategy(
         &mut self,
         info_key: &str,
-        num_actions: usize,
+        actions: &[usize],
         sigma_buf: &mut Vec<f32>,
     ) {
         if !self.info_states.contains_key(info_key) {
             self.info_states
-                .insert(info_key.to_string(), InfoStateData::new(num_actions));
+                .insert(info_key.to_string(), InfoStateData::new(actions));
         }
         regret_matching(&self.info_states[info_key].regret_sum, sigma_buf);
     }
@@ -250,10 +254,10 @@ impl MCCFRSolver {
             return 0.0;
         }
 
-        let info_key = state.rs_info_state_string(player);
-        self.get_strategy(&info_key, num_actions, sigma_buf);
-        let sigma: Vec<f32> = sigma_buf.clone();
         let actions: Vec<usize> = actions_buf.clone();
+        let info_key = state.rs_info_state_string(player);
+        self.get_strategy(&info_key, &actions, sigma_buf);
+        let sigma: Vec<f32> = sigma_buf.clone();
 
         if player == update_player {
             let mut values = vec![0.0f32; num_actions];
@@ -316,10 +320,10 @@ impl MCCFRSolver {
             return 0.0;
         }
 
-        let info_key = state.rs_info_state_string(player);
-        self.get_strategy(&info_key, num_actions, sigma_buf);
-        let sigma: Vec<f32> = sigma_buf.clone();
         let actions: Vec<usize> = actions_buf.clone();
+        let info_key = state.rs_info_state_string(player);
+        self.get_strategy(&info_key, &actions, sigma_buf);
+        let sigma: Vec<f32> = sigma_buf.clone();
 
         // Sampling policy: epsilon-greedy at update player, sigma at opponent
         let is_update = player == update_player;

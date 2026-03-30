@@ -88,3 +88,33 @@ fn epsilon_ignored_for_external() {
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), Some(0.0), None).is_ok());
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), None, None).is_ok());
 }
+
+#[test]
+fn strategy_returns_cell_indices_not_sequential() {
+    // After the first move, some info states have legal_actions that don't
+    // start at 0 (e.g. [1,2,3]). The strategy must return actual cell indices
+    // so that exploitability can match them correctly.
+    let mut solver =
+        MCCFRSolver::new(2, 2, Some(Sampling::External), None, Some(42)).unwrap();
+    solver.solve(5000);
+    let strategy = solver.get_average_strategy();
+    let board_size = 4usize; // 2x2
+    for (key, probs) in &strategy {
+        for &(action, _) in probs {
+            assert!(
+                action < board_size,
+                "action {action} out of bounds for 2x2 board in key {key}"
+            );
+        }
+        // Verify all returned actions are valid cell positions for this info state.
+        // Parse the grid from the info state to determine which cells are empty.
+        let grid: String = key.chars().skip(3).filter(|&c| c != '\n').collect();
+        for &(action, _) in probs {
+            assert_eq!(
+                grid.as_bytes()[action],
+                b'.',
+                "action {action} should be an empty cell in info state {key}"
+            );
+        }
+    }
+}

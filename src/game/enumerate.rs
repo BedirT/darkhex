@@ -22,6 +22,12 @@ pub struct GameTreeStats {
     /// Info states per player.
     #[pyo3(get)]
     pub info_states_by_player: [usize; 2],
+    /// Unique canonical info states (under 180° rotation symmetry).
+    #[pyo3(get)]
+    pub canonical_info_states: usize,
+    /// Canonical info states per player.
+    #[pyo3(get)]
+    pub canonical_by_player: [usize; 2],
     /// Total unique game states visited (not terminal histories).
     #[pyo3(get)]
     pub game_states_visited: usize,
@@ -34,8 +40,9 @@ pub struct GameTreeStats {
 impl GameTreeStats {
     fn __repr__(&self) -> String {
         format!(
-            "GameTreeStats(info_states={}, P0={}, P1={}, game_states={}, max_depth={})",
+            "GameTreeStats(info_states={}, canonical={}, P0={}, P1={}, game_states={}, max_depth={})",
             self.total_info_states,
+            self.canonical_info_states,
             self.info_states_by_player[0],
             self.info_states_by_player[1],
             self.game_states_visited,
@@ -74,6 +81,7 @@ fn state_key(state: &DarkHexState) -> Vec<u8> {
 #[pyfunction]
 pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
     let mut info_states: [HashSet<String>; 2] = [HashSet::new(), HashSet::new()];
+    let mut canonical_states: [HashSet<String>; 2] = [HashSet::new(), HashSet::new()];
     let mut visited: HashSet<Vec<u8>> = HashSet::new();
     let mut max_depth: usize = 0;
 
@@ -84,6 +92,7 @@ pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
         &state,
         0,
         &mut info_states,
+        &mut canonical_states,
         &mut visited,
         &mut max_depth,
         &mut actions_buf,
@@ -91,9 +100,13 @@ pub fn enumerate_game_tree(rows: usize, cols: usize) -> GameTreeStats {
 
     let p0 = info_states[0].len();
     let p1 = info_states[1].len();
+    let cp0 = canonical_states[0].len();
+    let cp1 = canonical_states[1].len();
     GameTreeStats {
         total_info_states: p0 + p1,
         info_states_by_player: [p0, p1],
+        canonical_info_states: cp0 + cp1,
+        canonical_by_player: [cp0, cp1],
         game_states_visited: visited.len(),
         max_depth,
     }
@@ -103,6 +116,7 @@ fn traverse(
     state: &DarkHexState,
     depth: usize,
     info_states: &mut [HashSet<String>; 2],
+    canonical_states: &mut [HashSet<String>; 2],
     visited: &mut HashSet<Vec<u8>>,
     max_depth: &mut usize,
     actions_buf: &mut Vec<usize>,
@@ -123,6 +137,8 @@ fn traverse(
     let player = state.rs_current_player();
     let pi = player.index();
     info_states[pi].insert(state.rs_info_state_string(player));
+    let (canon, _) = state.rs_canonical_info_state(player);
+    canonical_states[pi].insert(canon);
 
     state.rs_legal_actions(actions_buf);
     let actions: Vec<usize> = actions_buf.clone();
@@ -130,7 +146,15 @@ fn traverse(
     for &action in &actions {
         let mut child = state.clone();
         child.rs_apply_action(action);
-        traverse(&child, depth + 1, info_states, visited, max_depth, actions_buf);
+        traverse(
+            &child,
+            depth + 1,
+            info_states,
+            canonical_states,
+            visited,
+            max_depth,
+            actions_buf,
+        );
     }
 }
 

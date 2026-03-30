@@ -48,11 +48,11 @@ class TestOutcomeSampling:
         assert solver.num_info_states() > 0
 
     def test_2x2_discovers_all_info_states(self):
-        """Epsilon-greedy exploration should find all 42 info states."""
+        """Epsilon-greedy exploration should find all canonical info states (~22)."""
         solver = MCCFRSolver(2, 2, Sampling.Outcome, epsilon=0.6, seed=42)
         solver.solve(10000)
         n = solver.num_info_states()
-        assert n >= 40, f"expected >=40, got {n}"
+        assert n >= 18, f"expected >=18 canonical, got {n}"
 
     def test_2x2_strategy_valid(self):
         solver = MCCFRSolver(2, 2, Sampling.Outcome, seed=42)

@@ -31,3 +31,52 @@ fn enumerate_2x2_player_split() {
         stats.total_info_states
     );
 }
+
+#[test]
+fn canonical_2x2_roughly_half() {
+    let stats = enumerate_game_tree(2, 2);
+    assert!(
+        stats.canonical_info_states < stats.total_info_states,
+        "canonical {} should be less than total {}",
+        stats.canonical_info_states, stats.total_info_states
+    );
+    assert!(
+        stats.canonical_info_states >= 20,
+        "canonical {} too low (expected ~21-22)",
+        stats.canonical_info_states
+    );
+    assert!(
+        stats.canonical_info_states <= 24,
+        "canonical {} too high (expected ~21-22)",
+        stats.canonical_info_states
+    );
+}
+
+#[test]
+fn canonical_3x2_roughly_half() {
+    let stats = enumerate_game_tree(3, 2);
+    assert!(
+        stats.canonical_info_states < stats.total_info_states,
+        "canonical {} should be less than total {}",
+        stats.canonical_info_states, stats.total_info_states
+    );
+    assert!(
+        stats.canonical_info_states >= 195,
+        "canonical {} too low (expected ~205)",
+        stats.canonical_info_states
+    );
+    assert!(
+        stats.canonical_info_states <= 215,
+        "canonical {} too high (expected ~205)",
+        stats.canonical_info_states
+    );
+}
+
+#[test]
+fn canonical_player_split_sums() {
+    let stats = enumerate_game_tree(2, 2);
+    assert_eq!(
+        stats.canonical_by_player[0] + stats.canonical_by_player[1],
+        stats.canonical_info_states
+    );
+}

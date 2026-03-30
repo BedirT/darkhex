@@ -257,7 +257,12 @@ impl MCCFRSolver {
 
         let player = state.rs_current_player();
 
-        // pONE check: if this info state is a probability-1 win, skip subtree
+        // pONE pruning (thesis §4.2): treat probability-1 win states as
+        // pseudo-terminals. This substitutes the optimal value (±1) for the
+        // subtree, skipping regret/strategy updates within it. Valid because
+        // at Nash equilibrium the value at a pONE state IS ±1, so the
+        // surrogate is exact for converged strategies. The thesis reports
+        // 20% memory savings and 8.2% fewer missed wins on 4x3.
         if let Some(ref db) = self.pone_db {
             let (canon, _) = state.rs_canonical_info_state(player);
             if db.rs_contains(&canon) {
@@ -347,7 +352,7 @@ impl MCCFRSolver {
 
         let player = state.rs_current_player();
 
-        // pONE check: if this info state is a probability-1 win, skip subtree
+        // pONE pruning (same rationale as external_sampling above)
         if let Some(ref db) = self.pone_db {
             let (canon, _) = state.rs_canonical_info_state(player);
             if db.rs_contains(&canon) {

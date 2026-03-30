@@ -255,9 +255,19 @@ fn is_pone(
     // Find cells that appear empty to this player
     let empty_appearing: Vec<usize> = (0..n).filter(|&i| view[i].is_none()).collect();
 
+    // Build a base board from the player's VIEW (not the true board).
+    // The view shows own stones, discovered opponent stones, and
+    // empty-appearing cells. Hidden opponent stones are unknown.
+    let mut base_cells = vec![Cell::Empty; n];
+    for i in 0..n {
+        if let Some(c) = view[i] {
+            base_cells[i] = c;
+        }
+    }
+
     if hidden_count == 0 {
-        // Player sees full picture — minimax check on the true board
-        return hex_minimax(true_cells, rows, cols, player, minimax_memo) == player;
+        // Player sees full picture — minimax check on the view board
+        return hex_minimax(&base_cells, rows, cols, player, minimax_memo) == player;
     }
 
     // Enumerate all placements of hidden_count opponent stones
@@ -265,8 +275,8 @@ fn is_pone(
     // For each placement, check if the player can still force a win.
     let combos = combinations(&empty_appearing, hidden_count);
     for combo in &combos {
-        // Construct hypothetical true board with hidden stones placed
-        let mut hypo_cells = true_cells.to_vec();
+        // Construct hypothetical board: player's view + hidden stones placed
+        let mut hypo_cells = base_cells.clone();
         for &pos in combo {
             hypo_cells[pos] = opp_cell;
         }

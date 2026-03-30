@@ -141,3 +141,80 @@ fn three_by_three_black_wins() {
     assert!(s.is_terminal());
     assert_eq!(s.winner(), Some(Player::Black));
 }
+
+// --- Canonical info state (180° rotation symmetry) tests ---
+
+#[test]
+fn canonical_info_state_symmetry_2x2() {
+    // 2x2 board: 180° rotation maps cell 0↔3, 1↔2
+    // Black at cell 0 → "P0\nx.\n.." and Black at cell 3 → "P0\n..\n.x"
+    // These should have the same canonical form.
+    let mut s1 = DarkHexState::rs_new(2, 2);
+    s1.rs_apply_action(0); // Black at 0
+    let (c1, _) = s1.rs_canonical_info_state(Player::Black);
+
+    let mut s2 = DarkHexState::rs_new(2, 2);
+    s2.rs_apply_action(3); // Black at 3
+    let (c2, _) = s2.rs_canonical_info_state(Player::Black);
+
+    assert_eq!(c1, c2, "symmetric states should have same canonical form");
+}
+
+#[test]
+fn canonical_empty_board_is_self() {
+    // Empty board is self-canonical (all dots, palindromic)
+    let s = DarkHexState::rs_new(2, 2);
+    let orig = s.rs_info_state_string(Player::Black);
+    let (canon, is_orig) = s.rs_canonical_info_state(Player::Black);
+    assert_eq!(orig, canon);
+    assert!(is_orig);
+}
+
+#[test]
+fn canonical_preserves_player_prefix() {
+    let s = DarkHexState::rs_new(2, 2);
+    let (c0, _) = s.rs_canonical_info_state(Player::Black);
+    let (c1, _) = s.rs_canonical_info_state(Player::White);
+    assert!(c0.starts_with("P0\n"));
+    assert!(c1.starts_with("P1\n"));
+}
+
+#[test]
+fn canonical_3x2_symmetry() {
+    // 3x2 board (6 cells): 180° maps 0↔5, 1↔4, 2↔3
+    // Black at cell 0 and Black at cell 5 should share canonical form.
+    let mut s1 = DarkHexState::rs_new(3, 2);
+    s1.rs_apply_action(0);
+    let (c1, _) = s1.rs_canonical_info_state(Player::Black);
+
+    let mut s2 = DarkHexState::rs_new(3, 2);
+    s2.rs_apply_action(5);
+    let (c2, _) = s2.rs_canonical_info_state(Player::Black);
+
+    assert_eq!(c1, c2);
+}
+
+#[test]
+fn canonical_non_symmetric_state_chooses_smaller() {
+    // Create a state that is NOT self-symmetric, verify canonical is the smaller.
+    let mut s = DarkHexState::rs_new(2, 2);
+    s.rs_apply_action(0); // Black at 0
+    let orig = s.rs_info_state_string(Player::Black);
+    let (canon, is_orig) = s.rs_canonical_info_state(Player::Black);
+    // "P0\nx.\n.." vs rotated "P0\n..\n.x" — ".." < "x." so rotated is smaller
+    assert!(!is_orig, "rotated should be chosen as canonical");
+    assert!(canon < orig, "canonical should be lex-smaller");
+}
+
+#[test]
+fn rotated_info_state_reverses_grid() {
+    // Verify the rotation produces the expected string.
+    let mut s = DarkHexState::rs_new(2, 2);
+    s.rs_apply_action(0); // Black at cell 0
+    // Original: "P0\nx.\n.."  grid cells: [x, ., ., .]
+    // Rotated:  "P0\n..\n.x"  grid cells reversed: [., ., ., x]
+    let orig = s.rs_info_state_string(Player::Black);
+    assert_eq!(orig, "P0\nx.\n..");
+    let rotated = s.rs_rotated_info_state_string(Player::Black);
+    assert_eq!(rotated, "P0\n..\n.x");
+}

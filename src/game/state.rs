@@ -178,8 +178,7 @@ impl DarkHexState {
                 CollisionRule::Abrupt => {
                     // ADH: turn wasted, switch player
                     self.stones_placed += 1;
-                    self.current_player =
-                        Player::from_index(self.stones_placed % 2);
+                    self.current_player = Player::from_index(self.stones_placed % 2);
                 }
             }
             false
@@ -386,14 +385,12 @@ impl DarkHexState {
             self.current_player = Player::from_index(self.stones_placed % 2);
             true
         } else {
-            self.player_views[pi][action] =
-                Some(Cell::from_player(player.opponent()));
+            self.player_views[pi][action] = Some(Cell::from_player(player.opponent()));
             match self.collision_rule {
                 CollisionRule::Classic => {}
                 CollisionRule::Abrupt => {
                     self.stones_placed += 1;
-                    self.current_player =
-                        Player::from_index(self.stones_placed % 2);
+                    self.current_player = Player::from_index(self.stones_placed % 2);
                 }
             }
             false

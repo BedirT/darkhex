@@ -34,9 +34,9 @@ fn cdh_collision_retries() {
     // CDH: after collision, SAME player tries again
     let mut s = cdh(2, 2);
     assert!(s.apply_action(0).unwrap()); // Black places at 0
-    // White's turn: tries cell 0 → collision
+                                         // White's turn: tries cell 0 → collision
     assert!(!s.apply_action(0).unwrap()); // collision, returns false
-    // White should STILL be the current player (CDH retry)
+                                          // White should STILL be the current player (CDH retry)
     assert_eq!(s.current_player(), Player::White);
     assert_eq!(s.num_stones(), [1, 0]);
     // White retries on cell 1 → success
@@ -51,7 +51,7 @@ fn cdh_collision_reveals_in_view() {
     let mut s = cdh(2, 2);
     s.apply_action(0).unwrap(); // Black at (0,0)
     s.apply_action(0).unwrap(); // White collides at (0,0) → discovers Black
-    // White sees Black at cell 0
+                                // White sees Black at cell 0
     let info_w = s.info_state_string(Player::White);
     assert_eq!(info_w, "P1\nx.\n..");
     // White still has 3 empty-looking cells (cell 0 now revealed)
@@ -89,7 +89,7 @@ fn cdh_multiple_collisions_then_success() {
 fn adh_collision_wastes_turn() {
     let mut s = adh(2, 2);
     s.apply_action(0).unwrap(); // Black places at 0
-    // White collides on 0 → turn wasted
+                                // White collides on 0 → turn wasted
     assert!(!s.apply_action(0).unwrap());
     // Turn passed to Black (ADH)
     assert_eq!(s.current_player(), Player::Black);
@@ -211,8 +211,8 @@ fn rotated_info_state_reverses_grid() {
     // Verify the rotation produces the expected string.
     let mut s = DarkHexState::rs_new(2, 2);
     s.rs_apply_action(0); // Black at cell 0
-    // Original: "P0\nx.\n.."  grid cells: [x, ., ., .]
-    // Rotated:  "P0\n..\n.x"  grid cells reversed: [., ., ., x]
+                          // Original: "P0\nx.\n.."  grid cells: [x, ., ., .]
+                          // Rotated:  "P0\n..\n.x"  grid cells reversed: [., ., ., x]
     let orig = s.rs_info_state_string(Player::Black);
     assert_eq!(orig, "P0\nx.\n..");
     let rotated = s.rs_rotated_info_state_string(Player::Black);

@@ -39,8 +39,7 @@ fn outcome_runs() {
 #[test]
 fn outcome_discovers_all_2x2_canonical_info_states() {
     // With canonical reduction, symmetric info states are merged (~half of 42).
-    let mut solver =
-        MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), Some(42)).unwrap();
+    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), Some(42)).unwrap();
     solver.solve(10000);
     let n = solver.num_info_states();
     assert!(n >= 18, "expected >=18 canonical info states, got {n}");
@@ -95,8 +94,7 @@ fn strategy_returns_cell_indices_not_sequential() {
     // After the first move, some info states have legal_actions that don't
     // start at 0 (e.g. [1,2,3]). The strategy must return actual cell indices
     // so that exploitability can match them correctly.
-    let mut solver =
-        MCCFRSolver::new(2, 2, Some(Sampling::External), None, Some(42)).unwrap();
+    let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::External), None, Some(42)).unwrap();
     solver.solve(5000);
     let strategy = solver.get_average_strategy();
     let board_size = 4usize; // 2x2

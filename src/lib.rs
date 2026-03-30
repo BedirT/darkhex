@@ -9,6 +9,7 @@ use game::types::{CollisionInfo, CollisionRule, Player};
 use solver::exploitability::{best_response_values, exploitability};
 use solver::mccfr::{MCCFRSolver, Sampling};
 use solver::pone::PoneDb;
+use solver::sip::{simplify_policy, simplify_policy_plus};
 
 /// DarkHex game engine and solver, implemented in Rust.
 #[pymodule]
@@ -25,5 +26,7 @@ fn _engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(enumerate_game_tree, m)?)?;
     m.add_function(wrap_pyfunction!(exploitability, m)?)?;
     m.add_function(wrap_pyfunction!(best_response_values, m)?)?;
+    m.add_function(wrap_pyfunction!(simplify_policy, m)?)?;
+    m.add_function(wrap_pyfunction!(simplify_policy_plus, m)?)?;
     Ok(())
 }

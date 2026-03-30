@@ -7,6 +7,7 @@ mod common;
 mod hex_board;
 mod play;
 mod theme;
+mod viewer;
 
 fn main() {
     App::new()
@@ -21,6 +22,7 @@ fn main() {
         .add_plugins(hex_board::HexBoardPlugin)
         .add_plugins(play::PlayPlugin)
         .add_plugins(builder::BuilderPlugin)
+        .add_plugins(viewer::ViewerPlugin)
         .init_state::<app_state::AppScreen>()
         .init_state::<app_state::RenderMode>()
         .add_systems(Startup, setup)

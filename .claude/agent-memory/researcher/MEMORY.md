@@ -1,0 +1,3 @@
+- [Thesis Strategy Builder](thesis_strategy_builder.md) -- DSaGe tool UI, data model, and all visualization patterns from thesis Ch3-4
+- [pONE Algorithm Research](pone_algorithm_research.md) -- Weak vs Strong condition bug, old Python AND-OR tree, Russell-Wolfe framework, correct fix
+- [Thesis epsilon 0.002 methodology](thesis_epsilon_methodology.md) -- Multi-stage pipeline: 1B OS-MCCFR + SIP + SIP+, measured with Ab-BR not true exploitability

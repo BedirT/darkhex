@@ -12,6 +12,5 @@ pub enum AppScreen {
 pub enum RenderMode {
     #[default]
     Research,
-    #[allow(dead_code)]
     Game,
 }

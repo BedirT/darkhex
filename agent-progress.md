@@ -5,19 +5,17 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
 - Date: 2026-03-30
-- Fixed pONE bug: AND-OR belief-space search replaces per-config minimax
-  - P1 root on 4x3 no longer falsely flagged; 31% actual info state reduction
-  - Ported from old Python `ryan_alg` (PONE/pone.py) to Rust
-- EXP-003 v2: MCCFR on 4x3 CDH up to 100M iterations
-  - Vanilla: expl 0.985 at 100M (slow convergence, 171k canonical info states)
-  - pONE: expl 1.000 at 100M (WORSE — pruned subtrees lack stored strategies)
-  - pONE reduces info states 31% (119k vs 172k), throughput +10%
-  - SIP/SIP+ on 100M: no improvement — strategy not converged enough
-  - Throughput: 100–134k iter/s (release, M-series Mac)
-- Cherry-picked SIP/SIP+ implementation (thesis §4.4–4.5)
-- Key thesis discovery: 0.002 epsilon used 1B iters + SIP+ + Ab-BR (weaker metric)
-  - Our clairvoyant BR is a stricter upper bound
-- 117 tests (54 Rust + 63 Python) + 35 SIP tests = 152 total, all passing
+- EXP-003 v3: MCCFR on 4x3 CDH — 1B iterations (thesis baseline)
+  - Exploitability: 0.999 (1M) → 0.985 (100M) → 0.989 (1B) — plateaus
+  - 175,825 canonical info states (95.5% of ~184k)
+  - Throughput: 113–127k iter/s, 1B solve ~2.2h
+  - Gap vs thesis (0.002) is metric difference (clairvoyant BR vs Ab-BR)
+- Fixed pONE: AND-OR belief-space search replaces per-config minimax
+  - Disabled pONE pruning in MCCFR (causes missing strategies in subtrees)
+  - PoneDb correct for analysis: 57,485 states on 4x3
+- Solver checkpointing: save/load/resume via bincode serialization (~16 MB)
+- SIP/SIP+ cherry-picked (Rust, thesis §4.4–4.5) — no effect on current strategy
+- Thesis discovery: 0.002 = 1B iters + SIP+ + Ab-BR (weaker metric than our BR)
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -39,18 +37,20 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] pONE belief-space precomputation (probability-1 win state pruning)
 - [x] Fixed strategy-action index bug in get_average_strategy()
 - [x] 117 tests (54 Rust + 63 Python), all passing
-- [x] EXP-003: 4x3 MCCFR convergence (100M iters, pONE fixed, SIP tested)
+- [x] EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 (clairvoyant BR)
 - [x] pONE AND-OR fix: belief-space search replaces per-config minimax
+- [x] pONE MCCFR pruning disabled (causes missing strategies in subtrees)
 - [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
+- [x] Solver checkpointing: save/load/resume via bincode (~16 MB for 4x3)
 
 ## Open PR
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
-- [ ] Fix pONE-MCCFR integration: output strategies for pruned subtrees (not just prune)
-- [ ] Run 1B iterations on 4x3 (thesis baseline — ~2.5h MCCFR at 120k iter/s)
 - [ ] Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
+- [ ] Run 10B iterations (resume from 1B checkpoint)
 - [ ] Deep CFR or ReBeL prototype (neural approach may converge faster on 4x3)
+- [ ] PR: merge experiment/exp003-4x3-mccfr → re-dev
 
 ## Decisions Made
 - Clairvoyant BR (per-state optimal) for exploitability — upper bound, tight for converged strategies (2026-03-29)

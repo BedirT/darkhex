@@ -81,14 +81,16 @@ fn pone_root_is_pone_for_black_2x2() {
 }
 
 #[test]
-fn combinations_basic() {
-    let items = vec![0, 1, 2, 3];
-    let c2 = combinations(&items, 2);
-    assert_eq!(c2.len(), 6); // C(4,2) = 6
-    let c0 = combinations(&items, 0);
-    assert_eq!(c0.len(), 1); // C(4,0) = 1 (empty set)
-    let c4 = combinations(&items, 4);
-    assert_eq!(c4.len(), 1); // C(4,4) = 1
-    let c5 = combinations(&items, 5);
-    assert_eq!(c5.len(), 0); // C(4,5) = 0
+fn pone_4x3_root_not_pone_for_white() {
+    // After the AND-OR fix: P1 root on 4x3 must NOT be pONE.
+    // The old per-config minimax falsely flagged it because White
+    // can beat each hidden-Black-stone position separately, but
+    // no single strategy works blind against all 12 positions.
+    let db = PoneDb::new(4, 3);
+    let state = DarkHexState::rs_new(4, 3);
+    let (canon_w, _) = state.rs_canonical_info_state(Player::White);
+    assert!(
+        !db.rs_contains(&canon_w),
+        "P1 root on 4x3 must NOT be pONE (AND-OR fix)"
+    );
 }

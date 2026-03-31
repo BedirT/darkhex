@@ -4,16 +4,18 @@
 Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
-- Date: 2026-03-29
-- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings
-  - 2x2: 42 → 22 canonical, 3x2: 410 → ~205
-  - Integrated into MCCFR, exploitability, enumeration
-- pONE (probability-1 win states): belief-space precomputation per thesis §4.2
-  - Precomputes info states where player wins regardless of hidden stone placement
-  - Optional opt-in via set_pone_db() / pone_db kwarg
-  - Game logic completely unaffected
-- Fixed strategy-action index bug: get_average_strategy() now returns actual cell indices
-- 54 Rust + 63 Python = 117 tests passing
+- Date: 2026-03-30
+- EXP-003 v3: MCCFR on 4x3 CDH — 1B iterations (thesis baseline)
+  - Exploitability: 0.999 (1M) → 0.985 (100M) → 0.989 (1B) — plateaus
+  - 175,825 canonical info states (95.5% of ~184k)
+  - Throughput: 113–127k iter/s, 1B solve ~2.2h
+  - Gap vs thesis (0.002) is metric difference (clairvoyant BR vs Ab-BR)
+- Fixed pONE: AND-OR belief-space search replaces per-config minimax
+  - Disabled pONE pruning in MCCFR (causes missing strategies in subtrees)
+  - PoneDb correct for analysis: 57,485 states on 4x3
+- Solver checkpointing: save/load/resume via bincode serialization (~16 MB)
+- SIP/SIP+ cherry-picked (Rust, thesis §4.4–4.5) — no effect on current strategy
+- Thesis discovery: 0.002 = 1B iters + SIP+ + Ab-BR (weaker metric than our BR)
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -35,14 +37,20 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] pONE belief-space precomputation (probability-1 win state pruning)
 - [x] Fixed strategy-action index bug in get_average_strategy()
 - [x] 117 tests (54 Rust + 63 Python), all passing
+- [x] EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 (clairvoyant BR)
+- [x] pONE AND-OR fix: belief-space search replaces per-config minimax
+- [x] pONE MCCFR pruning disabled (causes missing strategies in subtrees)
+- [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
+- [x] Solver checkpointing: save/load/resume via bincode (~16 MB for 4x3)
 
 ## Open PR
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
-- [ ] Run MCCFR on 4x3 (~184,000 canonical info states — the thesis headline board)
-- [ ] SIP/SIP+ policy simplification (thesis novel contribution)
-- [ ] Deep CFR or ReBeL prototype
+- [ ] Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
+- [ ] Run 10B iterations (resume from 1B checkpoint)
+- [ ] Deep CFR or ReBeL prototype (neural approach may converge faster on 4x3)
+- [ ] PR: merge experiment/exp003-4x3-mccfr → re-dev
 
 ## Decisions Made
 - Clairvoyant BR (per-state optimal) for exploitability — upper bound, tight for converged strategies (2026-03-29)
@@ -61,6 +69,8 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - External Sampling on 3x3: 7 iters/s, exponential in branching factor
 - OS-MCCFR with epsilon at all nodes: biased importance weights (3 bugs)
 - Naive DFS enumeration: 6.2h on 3x3 (9.47B terminals)
+- pONE per-config minimax: checks ∀config ∃strategy instead of ∃strategy ∀config. False positives on non-square boards (3x2, 4x3). Prunes entire tree when P1 root is falsely flagged (2026-03-30)
+- OS-MCCFR 10M iters on 4x3: exploitability stuck at ~0.998. Game tree has 31.9M states; one-path sampling gives inadequate coverage (2026-03-30)
 
 ## Decisions Made (continued)
 - Isomorphic reduction always on (no opt-out), canonical = lex-smaller of original/rotated (2026-03-29)

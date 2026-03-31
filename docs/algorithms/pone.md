@@ -2,32 +2,38 @@
 
 ## What It Does
 
-Identifies game states where the current player can win with **probability 1** from their information state, regardless of where hidden opponent stones are placed. These states are treated as pseudo-terminals during MCCFR traversal, pruning the subtree and saving ~20% memory on 4x3.
+Identifies game states where the current player can win with **probability 1** from their information state, regardless of where hidden opponent stones are placed. These states are treated as pseudo-terminals during MCCFR traversal, pruning the subtree and saving memory.
 
-This is a **belief-space check**, not a simple minimax on the true board. The player must have a winning strategy that works for ALL possible configurations of hidden opponent stones.
+This is a **belief-space check**, not a simple minimax on the true board. The player must have a **single** winning strategy that works for ALL possible configurations of hidden opponent stones simultaneously.
 
 ## Theoretical Basis
 
-Defined by Bonnet (2018) and used in the thesis (Section 4.2). In CDH Dark Hex, collisions don't waste turns — the player retries until placing. A state is pONE for player P if:
+Defined by Bonnet (2018) and used in the thesis (Section 4.2). The correct pONE check uses an AND-OR tree search (Russell & Wolfe, IJCAI 2005):
 
-1. Parse P's information state to get: own stones, discovered opponent stones, empty-appearing cells
-2. Compute `hidden_count = true_opponent_stones - visible_opponent_stones`
-3. For ALL `C(empty_cells, hidden_count)` placements of hidden stones among empty-appearing cells:
-   - Construct the hypothetical true board
-   - Check if P can force a win via regular Hex minimax
-4. If P wins in EVERY placement → pONE
+**When h=0** (no hidden stones): Player sees the full board. Standard perfect-information minimax determines if they can force a win.
 
-**Examples**:
-- h=0: Player sees full board. If they have a winning move, it's pONE.
-- h=1, 2 winning cells: Even if hidden stone blocks one, other works → pONE.
-- h>0 complex: Multi-step strategy covering all hidden stone configurations.
+**When h>0** (hidden stones exist): For each empty-appearing cell y the player considers (OR node):
+- **AND branch 1 (collision):** Assume y holds a hidden opponent stone. The collision reveals it: player's view now shows the opponent stone at y, h decreases by 1. Recurse.
+- **AND branch 2 (success):** Assume y is truly empty. Player's stone is placed at y. Recurse.
+- **Both branches must succeed** for action y to be viable.
+- If ANY action y satisfies both branches → pONE.
 
-Reference: Bonnet, F. (2018). "Winning Dark Hex."
+**Opponent turns:** When it's the opponent's turn (after a successful placement), h increments because the opponent places a hidden stone.
+
+This enforces the **strong condition**: ∃ strategy, ∀ config: strategy wins. The player commits to action y before knowing whether it results in collision or success. The AND node ensures the same choice works in both scenarios.
+
+### Historical Note
+
+An earlier implementation (pre-2026-03-30) used per-configuration minimax, which checks the **weak condition**: ∀ config, ∃ strategy that wins. This produced false positives on non-square boards (e.g., P1 root on 4x3), causing the MCCFR solver to prune the entire game tree. The AND-OR fix corrects this.
+
+References:
+- Bonnet, F. (2018). "Winning strategies in DarkHex." ICGA Journal.
+- Russell, S. & Wolfe, J. (2005). "Efficient belief-state AND-OR search." IJCAI.
 
 ## Computational Complexity
 
 - **Precomputation time**: depends on board size and max hidden count
-  - 2x2: <1ms, 3x2: ~10ms, 3x3: ~seconds, 4x3: minutes
+  - 2x2: <1ms, 3x2: ~10ms, 3x3: ~seconds, 4x3: ~1-2 minutes
 - **Runtime overhead**: O(1) HashSet lookup per info state during traversal
 - **Space**: HashSet of canonical pONE info state strings
 
@@ -47,14 +53,14 @@ from darkhex._engine import MCCFRSolver, PoneDb, Sampling, exploitability
 
 # Build pONE database (one-time precomputation)
 db = PoneDb(4, 3)
-print(db)  # PoneDb(4x3, N pONE states)
+print(db)  # PoneDb(4x3, 57485 pONE states)
 
 # Use with MCCFR
 solver = MCCFRSolver(4, 3, Sampling.Outcome, seed=42)
 solver.set_pone_db(db)
 solver.solve(100000)
 
-# Use with exploitability (optional)
+# Use with exploitability (optional — does NOT bias the measurement)
 expl = exploitability(4, 3, solver.get_average_strategy(), db)
 
 # Without pONE (backward compatible)
@@ -63,16 +69,17 @@ expl_no_pone = exploitability(4, 3, solver.get_average_strategy())
 
 ## Expected Output
 
-| Board | Total Canonical | pONE States | Reduction |
-|-------|----------------|-------------|-----------|
-| 2x2   | 22             | ~15-18      | ~70%      |
-| 3x2   | ~205           | varies      | varies    |
-| 4x3   | ~184,000       | ~36,800     | ~20%      |
+| Board | Canonical Info States | pONE States | MCCFR Info State Reduction |
+|-------|----------------------|-------------|---------------------------|
+| 2x2   | 22                   | 12          | ~55%                      |
+| 3x2   | ~205                 | 102         | ~50%                      |
+| 3x3   | ~6,278               | 2,314       | ~37%                      |
+| 4x3   | ~184,000             | 57,485      | ~33% (measured at 100k iters) |
 
 ## Implementation Notes
 
-- **CDH only**: pONE relies on the CDH property that collisions don't waste turns. For ADH, collisions change the true-board alternation, invalidating the regular Hex equivalence.
-- **Game logic untouched**: `DarkHexState`, `rs_is_terminal()`, `HexBoard` are never modified. pONE is purely a solver-side optimization.
+- **AND-OR tree search**: `pone_andor()` in `src/solver/pone.rs`. Memoized on (view, h) keys.
+- **CDH only**: pONE relies on CDH property that collisions don't waste turns.
+- **Game logic untouched**: `DarkHexState`, `rs_is_terminal()`, `HexBoard` are never modified.
 - **Canonical keys**: pONE stores canonical info state strings (isomorphic reduction applied).
-- **Building block**: `hex_minimax` provides memoized regular Hex minimax, reused across pONE checks.
-- **Legacy data**: Precomputed pickle files from the thesis exist at `darkhex/data/pone_states/`.
+- **Legacy data**: Precomputed pickle files from the thesis exist at `darkhex/data/pone_states/`. Note: these use a different representation (flat view strings + h) and include states for a specific player, so counts differ from our canonical info state counts.

@@ -105,6 +105,7 @@ impl PoneDb {
     fn new(rows: usize, cols: usize) -> Self {
         let mut states = HashSet::new();
         let mut minimax_memo: HashMap<Vec<u8>, Player> = HashMap::new();
+        let mut andor_memo: HashMap<Vec<u8>, bool> = HashMap::new();
         let mut visited: HashSet<Vec<u8>> = HashSet::new();
 
         let state = DarkHexState::rs_new(rows, cols);
@@ -116,6 +117,7 @@ impl PoneDb {
             cols,
             &mut states,
             &mut minimax_memo,
+            &mut andor_memo,
             &mut visited,
             &mut actions_buf,
         );
@@ -229,6 +231,7 @@ fn pone_traverse(
     cols: usize,
     pone_states: &mut HashSet<String>,
     minimax_memo: &mut HashMap<Vec<u8>, Player>,
+    andor_memo: &mut HashMap<Vec<u8>, bool>,
     visited: &mut HashSet<Vec<u8>>,
     actions_buf: &mut Vec<usize>,
 ) {
@@ -244,7 +247,7 @@ fn pone_traverse(
     let player = state.rs_current_player();
 
     // Check pONE for current player
-    if is_pone(state, player, rows, cols, minimax_memo) {
+    if is_pone(state, player, rows, cols, minimax_memo, andor_memo) {
         let (canon, _) = state.rs_canonical_info_state(player);
         pone_states.insert(canon);
     }
@@ -261,6 +264,7 @@ fn pone_traverse(
             cols,
             pone_states,
             minimax_memo,
+            andor_memo,
             visited,
             actions_buf,
         );
@@ -269,101 +273,185 @@ fn pone_traverse(
 
 /// Check if the current player has a probability-1 win from this state.
 ///
-/// Algorithm:
-/// 1. Determine hidden_count = opponent's true stones - opponent's visible stones
-/// 2. Find empty-appearing cells (cells that look empty to the player)
-/// 3. For all C(empty, hidden) placements of hidden stones:
-///    a. Construct the hypothetical true board
-///    b. Check if the player can force a win (minimax on true board)
-/// 4. If player wins in ALL placements -> pONE
+/// Extracts the player's view and hidden count from the game state,
+/// then delegates to the AND-OR belief-space search.
 fn is_pone(
     state: &DarkHexState,
     player: Player,
     rows: usize,
     cols: usize,
     minimax_memo: &mut HashMap<Vec<u8>, Player>,
+    andor_memo: &mut HashMap<Vec<u8>, bool>,
 ) -> bool {
     let pi = player.index();
     let true_cells = state.rs_board_cells();
     let view = &state.rs_player_views()[pi];
     let n = true_cells.len();
 
-    // Count opponent stones on true board
+    // Count opponent stones on true board vs visible to player
     let opp_cell = Cell::from_player(player.opponent());
     let true_opp_count = true_cells.iter().filter(|&&c| c == opp_cell).count();
-
-    // Count opponent stones visible to this player
     let visible_opp_count = view.iter().filter(|v| **v == Some(opp_cell)).count();
-
     let hidden_count = true_opp_count - visible_opp_count;
 
-    // Find cells that appear empty to this player
-    let empty_appearing: Vec<usize> = (0..n).filter(|&i| view[i].is_none()).collect();
-
-    // Build a base board from the player's VIEW (not the true board).
-    // The view shows own stones, discovered opponent stones, and
-    // empty-appearing cells. Hidden opponent stones are unknown.
-    let mut base_cells = vec![Cell::Empty; n];
+    // Build the player's view as Cell array
+    let mut view_cells = vec![Cell::Empty; n];
     for i in 0..n {
         if let Some(c) = view[i] {
-            base_cells[i] = c;
+            view_cells[i] = c;
         }
     }
 
-    if hidden_count == 0 {
-        // Player sees full picture — minimax check on the view board
-        return hex_minimax(&base_cells, rows, cols, player, minimax_memo) == player;
-    }
-
-    // Enumerate all placements of hidden_count opponent stones
-    // among the empty-appearing cells.
-    // For each placement, check if the player can still force a win.
-    let combos = combinations(&empty_appearing, hidden_count);
-    for combo in &combos {
-        // Construct hypothetical board: player's view + hidden stones placed
-        let mut hypo_cells = base_cells.clone();
-        for &pos in combo {
-            hypo_cells[pos] = opp_cell;
-        }
-        // Check if player can force a win on this hypothetical board
-        if hex_minimax(&hypo_cells, rows, cols, player, minimax_memo) != player {
-            return false; // Found a placement where player can't win
-        }
-    }
-
-    true // Player wins in all placements
+    pone_andor(
+        &view_cells,
+        player,
+        hidden_count,
+        rows,
+        cols,
+        minimax_memo,
+        andor_memo,
+    )
 }
 
-/// Generate all combinations of `k` elements from `items`.
-fn combinations(items: &[usize], k: usize) -> Vec<Vec<usize>> {
-    if k == 0 {
-        return vec![vec![]];
+/// AND-OR belief-space search for pONE (probability-1 win detection).
+///
+/// Determines whether `player` can guarantee a win from the given view
+/// with `h` hidden opponent stones, using a SINGLE strategy that works
+/// against all possible hidden configurations.
+///
+/// Structure (per thesis §4.2, Bonnet 2018, Russell & Wolfe 2005):
+/// - OR nodes: player picks which cell to play
+/// - AND nodes: both outcomes (collision / success) must lead to wins
+/// - When h=0: delegate to perfect-information hex_minimax
+/// - Opponent turns: increment h (opponent places a hidden stone)
+fn pone_andor(
+    view: &[Cell],
+    player: Player,
+    h: usize,
+    rows: usize,
+    cols: usize,
+    minimax_memo: &mut HashMap<Vec<u8>, Player>,
+    andor_memo: &mut HashMap<Vec<u8>, bool>,
+) -> bool {
+    // Memoization key: view cells + hidden count
+    let mut key = Vec::with_capacity(view.len() + 1);
+    for &c in view {
+        key.push(c as u8);
     }
-    if items.len() < k {
-        return vec![];
+    key.push(h as u8);
+
+    if let Some(&result) = andor_memo.get(&key) {
+        return result;
     }
-    let mut result = Vec::new();
-    combine_helper(items, k, 0, &mut Vec::with_capacity(k), &mut result);
+
+    // Check if player already won on the visible board
+    let mut board = HexBoard::new(rows, cols);
+    for (i, &c) in view.iter().enumerate() {
+        if c != Cell::Empty {
+            let p = match c {
+                Cell::Black => Player::Black,
+                Cell::White => Player::White,
+                _ => unreachable!(),
+            };
+            board.place_stone(i, p);
+        }
+    }
+    if board.winner() == Some(player) {
+        andor_memo.insert(key, true);
+        return true;
+    }
+    if board.winner() == Some(player.opponent()) {
+        andor_memo.insert(key, false);
+        return false;
+    }
+
+    // Determine whose turn it is from stone counts.
+    // Black moves first; turns alternate. Total Black moves = visible Black stones.
+    // Total White moves = visible White stones + hidden White stones (if player is Black)
+    //                   or visible Black stones + hidden Black stones (if player is White).
+    let player_cell = Cell::from_player(player);
+    let opp_cell = Cell::from_player(player.opponent());
+    let player_stones = view.iter().filter(|&&c| c == player_cell).count();
+    let opp_visible = view.iter().filter(|&&c| c == opp_cell).count();
+    let opp_total = opp_visible + h;
+
+    // In Hex: Black has count_b stones, White has count_w total (visible + hidden).
+    // Black's turn when count_b <= count_w.
+    let is_player_turn = if player == Player::Black {
+        player_stones <= opp_total
+    } else {
+        // player is White: player_stones = White stones, opp_total = Black stones
+        // Black's turn when Black_stones <= White_total → opp_total <= player_stones + h_for_white
+        // Actually: from generic perspective, it's player's turn when their stone count
+        // is behind or equal in the alternation sequence.
+        // Black goes first. Total moves = player_stones + opp_total.
+        // If total is even → Black's turn. If odd → White's turn.
+        // Player's turn iff (player==Black && total even) || (player==White && total odd)
+        let total_moves = player_stones + opp_total;
+        total_moves % 2 == 1 // White's turn when total moves is odd
+    };
+
+    if !is_player_turn {
+        // Opponent's turn: they place a hidden stone.
+        // The view doesn't change (player can't see it), but h increases.
+        let empty_count = view.iter().filter(|&&c| c == Cell::Empty).count();
+        if h >= empty_count {
+            // No room for another hidden stone — game should be terminal
+            andor_memo.insert(key, false);
+            return false;
+        }
+        let result = pone_andor(view, player, h + 1, rows, cols, minimax_memo, andor_memo);
+        andor_memo.insert(key, result);
+        return result;
+    }
+
+    // Player's turn — find empty-appearing cells
+    let empty_cells: Vec<usize> = view
+        .iter()
+        .enumerate()
+        .filter(|(_, &c)| c == Cell::Empty)
+        .map(|(i, _)| i)
+        .collect();
+
+    if empty_cells.is_empty() {
+        andor_memo.insert(key, false);
+        return false;
+    }
+
+    let result = if h == 0 {
+        // No hidden stones: perfect information. OR-search via minimax.
+        hex_minimax(view, rows, cols, player, minimax_memo) == player
+    } else {
+        // AND-OR search: player picks a cell y (OR), both outcomes must
+        // lead to a win (AND).
+        let mut found = false;
+        for &y in &empty_cells {
+            // AND branch 1: collision at y — reveal hidden opponent stone
+            let mut collision_view = view.to_vec();
+            collision_view[y] = opp_cell;
+            let collision_ok =
+                pone_andor(&collision_view, player, h - 1, rows, cols, minimax_memo, andor_memo);
+
+            if !collision_ok {
+                continue; // This action fails in the collision case
+            }
+
+            // AND branch 2: success at y — place own stone
+            let mut success_view = view.to_vec();
+            success_view[y] = player_cell;
+            let success_ok =
+                pone_andor(&success_view, player, h, rows, cols, minimax_memo, andor_memo);
+
+            if success_ok {
+                found = true;
+                break; // Found an action that works for both outcomes
+            }
+        }
+        found
+    };
+
+    andor_memo.insert(key, result);
     result
-}
-
-fn combine_helper(
-    items: &[usize],
-    k: usize,
-    start: usize,
-    current: &mut Vec<usize>,
-    result: &mut Vec<Vec<usize>>,
-) {
-    if current.len() == k {
-        result.push(current.clone());
-        return;
-    }
-    let remaining = k - current.len();
-    for i in start..=(items.len() - remaining) {
-        current.push(items[i]);
-        combine_helper(items, k, i + 1, current, result);
-        current.pop();
-    }
 }
 
 #[cfg(test)]

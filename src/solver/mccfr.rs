@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::io::{Read, Write};
 
 use pyo3::prelude::*;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 use crate::game::state::DarkHexState;
 use crate::game::types::Player;
@@ -10,7 +12,7 @@ use crate::solver::pone::PoneDb;
 
 /// MCCFR sampling variant.
 #[pyclass(eq, eq_int)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Sampling {
     /// Try ALL actions at update player nodes, sample ONE at opponent nodes.
     /// Unbiased, no importance weights. Expensive on large trees.
@@ -21,7 +23,7 @@ pub enum Sampling {
 }
 
 /// Per-info-state data: cumulative regrets and strategy sums.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct InfoStateData {
     regret_sum: Vec<f32>,
     strategy_sum: Vec<f32>,
@@ -225,6 +227,60 @@ impl MCCFRSolver {
         })
     }
 
+    /// Save solver state to a binary file for later resumption.
+    ///
+    /// Serializes: info_states, iterations, rows, cols, sampling, epsilon, rng.
+    /// The pONE database is NOT saved (re-attach via set_pone_db after load).
+    fn save(&self, path: &str) -> PyResult<()> {
+        let checkpoint = SolverCheckpoint {
+            info_states: self.info_states.clone(),
+            iterations: self.iterations,
+            rows: self.rows,
+            cols: self.cols,
+            sampling: self.sampling,
+            epsilon: self.epsilon,
+            rng_seed: 42u64.wrapping_add(self.iterations as u64),
+        };
+        let data = bincode::serialize(&checkpoint).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("serialize failed: {e}"))
+        })?;
+        let mut file = std::fs::File::create(path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("create file: {e}"))
+        })?;
+        file.write_all(&data).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("write file: {e}"))
+        })?;
+        Ok(())
+    }
+
+    /// Load solver state from a checkpoint file.
+    ///
+    /// Returns a fully functional solver that can resume training via solve().
+    /// Re-attach pONE database via set_pone_db() if needed.
+    #[staticmethod]
+    fn load(path: &str) -> PyResult<Self> {
+        let mut file = std::fs::File::open(path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("open file: {e}"))
+        })?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("read file: {e}"))
+        })?;
+        let checkpoint: SolverCheckpoint = bincode::deserialize(&data).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("deserialize failed: {e}"))
+        })?;
+        Ok(Self {
+            info_states: checkpoint.info_states,
+            iterations: checkpoint.iterations,
+            rows: checkpoint.rows,
+            cols: checkpoint.cols,
+            sampling: checkpoint.sampling,
+            epsilon: checkpoint.epsilon,
+            rng: SmallRng::seed_from_u64(checkpoint.rng_seed),
+            pone_db: None,
+        })
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "MCCFRSolver({}x{}, {:?}, eps={}, iters={}, info_states={})",
@@ -238,6 +294,20 @@ impl MCCFRSolver {
     }
 }
 
+/// Serializable checkpoint for save/load.
+#[derive(Serialize, Deserialize)]
+struct SolverCheckpoint {
+    info_states: HashMap<String, InfoStateData>,
+    iterations: usize,
+    rows: usize,
+    cols: usize,
+    sampling: Sampling,
+    epsilon: f32,
+    /// We can't serialize SmallRng directly. Store a seed derived from
+    /// the original seed + iterations so resumed training is deterministic.
+    rng_seed: u64,
+}
+
 // --- Traversal implementations (pure Rust, no PyO3) ---
 
 impl MCCFRSolver {
@@ -247,6 +317,25 @@ impl MCCFRSolver {
                 .insert(info_key.to_string(), InfoStateData::new(actions));
         }
         regret_matching(&self.info_states[info_key].regret_sum, sigma_buf);
+    }
+
+    /// Register a uniform strategy for a pONE info state.
+    ///
+    /// This ensures `get_average_strategy()` includes pONE states, so
+    /// exploitability can evaluate them instead of falling back to an
+    /// empty/default strategy. The uniform strategy is correct: at a
+    /// pONE state the player wins regardless of action choice.
+    fn register_pone_strategy(&mut self, info_key: &str, actions: &[usize]) {
+        self.info_states
+            .entry(info_key.to_string())
+            .or_insert_with(|| {
+                let n = actions.len();
+                InfoStateData {
+                    regret_sum: vec![0.0; n],
+                    strategy_sum: vec![1.0; n], // uniform: all actions equally good
+                    actions: actions.to_vec(),
+                }
+            });
     }
 
     // --- External Sampling ---
@@ -264,19 +353,6 @@ impl MCCFRSolver {
 
         let player = state.rs_current_player();
 
-        // pONE pruning (thesis §4.2): treat probability-1 win states as
-        // pseudo-terminals. This substitutes the optimal value (±1) for the
-        // subtree, skipping regret/strategy updates within it. Valid because
-        // at Nash equilibrium the value at a pONE state IS ±1, so the
-        // surrogate is exact for converged strategies. The thesis reports
-        // 20% memory savings and 8.2% fewer missed wins on 4x3.
-        if let Some(ref db) = self.pone_db {
-            let (canon, _) = state.rs_canonical_info_state(player);
-            if db.rs_contains(&canon) {
-                return if player == update_player { 1.0 } else { -1.0 };
-            }
-        }
-
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {
@@ -293,6 +369,7 @@ impl MCCFRSolver {
         } else {
             actions.iter().rev().map(|&a| n - 1 - a).collect()
         };
+
         self.get_strategy(&info_key, &canonical_actions, sigma_buf);
 
         // Map sigma from canonical to original action order
@@ -359,14 +436,6 @@ impl MCCFRSolver {
 
         let player = state.rs_current_player();
 
-        // pONE pruning (same rationale as external_sampling above)
-        if let Some(ref db) = self.pone_db {
-            let (canon, _) = state.rs_canonical_info_state(player);
-            if db.rs_contains(&canon) {
-                return if player == update_player { 1.0 } else { -1.0 };
-            }
-        }
-
         state.rs_legal_actions(actions_buf);
         let num_actions = actions_buf.len();
         if num_actions == 0 {
@@ -383,6 +452,7 @@ impl MCCFRSolver {
         } else {
             actions.iter().rev().map(|&a| n - 1 - a).collect()
         };
+
         self.get_strategy(&info_key, &canonical_actions, sigma_buf);
 
         // Map sigma from canonical to original action order

@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::io::{Read, Write};
 
 use pyo3::prelude::*;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 use crate::game::state::DarkHexState;
 use crate::game::types::Player;
@@ -10,7 +12,7 @@ use crate::solver::pone::PoneDb;
 
 /// MCCFR sampling variant.
 #[pyclass(eq, eq_int)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Sampling {
     /// Try ALL actions at update player nodes, sample ONE at opponent nodes.
     /// Unbiased, no importance weights. Expensive on large trees.
@@ -21,7 +23,7 @@ pub enum Sampling {
 }
 
 /// Per-info-state data: cumulative regrets and strategy sums.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct InfoStateData {
     regret_sum: Vec<f32>,
     strategy_sum: Vec<f32>,
@@ -225,6 +227,60 @@ impl MCCFRSolver {
         })
     }
 
+    /// Save solver state to a binary file for later resumption.
+    ///
+    /// Serializes: info_states, iterations, rows, cols, sampling, epsilon, rng.
+    /// The pONE database is NOT saved (re-attach via set_pone_db after load).
+    fn save(&self, path: &str) -> PyResult<()> {
+        let checkpoint = SolverCheckpoint {
+            info_states: self.info_states.clone(),
+            iterations: self.iterations,
+            rows: self.rows,
+            cols: self.cols,
+            sampling: self.sampling,
+            epsilon: self.epsilon,
+            rng_seed: 42u64.wrapping_add(self.iterations as u64),
+        };
+        let data = bincode::serialize(&checkpoint).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("serialize failed: {e}"))
+        })?;
+        let mut file = std::fs::File::create(path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("create file: {e}"))
+        })?;
+        file.write_all(&data).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("write file: {e}"))
+        })?;
+        Ok(())
+    }
+
+    /// Load solver state from a checkpoint file.
+    ///
+    /// Returns a fully functional solver that can resume training via solve().
+    /// Re-attach pONE database via set_pone_db() if needed.
+    #[staticmethod]
+    fn load(path: &str) -> PyResult<Self> {
+        let mut file = std::fs::File::open(path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("open file: {e}"))
+        })?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("read file: {e}"))
+        })?;
+        let checkpoint: SolverCheckpoint = bincode::deserialize(&data).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("deserialize failed: {e}"))
+        })?;
+        Ok(Self {
+            info_states: checkpoint.info_states,
+            iterations: checkpoint.iterations,
+            rows: checkpoint.rows,
+            cols: checkpoint.cols,
+            sampling: checkpoint.sampling,
+            epsilon: checkpoint.epsilon,
+            rng: SmallRng::seed_from_u64(checkpoint.rng_seed),
+            pone_db: None,
+        })
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "MCCFRSolver({}x{}, {:?}, eps={}, iters={}, info_states={})",
@@ -236,6 +292,20 @@ impl MCCFRSolver {
             self.info_states.len()
         )
     }
+}
+
+/// Serializable checkpoint for save/load.
+#[derive(Serialize, Deserialize)]
+struct SolverCheckpoint {
+    info_states: HashMap<String, InfoStateData>,
+    iterations: usize,
+    rows: usize,
+    cols: usize,
+    sampling: Sampling,
+    epsilon: f32,
+    /// We can't serialize SmallRng directly. Store a seed derived from
+    /// the original seed + iterations so resumed training is deterministic.
+    rng_seed: u64,
 }
 
 // --- Traversal implementations (pure Rust, no PyO3) ---

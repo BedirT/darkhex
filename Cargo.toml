@@ -12,6 +12,8 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 pyo3 = "0.23"
 rand = { version = "0.8", features = ["small_rng"] }
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
 
 [features]
 extension-module = ["pyo3/extension-module"]

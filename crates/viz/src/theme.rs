@@ -31,3 +31,14 @@ pub const TEXT_DIM: Color32 = Color32::from_rgb(140, 150, 170);
 pub const CLEAR_COLOR: Color = Color::srgb(0.075, 0.082, 0.114);
 
 pub const HEX_SIZE: f32 = 40.0;
+
+// 3D isometric renderer
+pub const HEX_SIZE_3D: f32 = 1.0;
+pub const TILE_HEIGHT: f32 = 0.3;
+pub const STONE_RADIUS: f32 = 0.35;
+pub const TILE_METALLIC: f32 = 0.1;
+pub const TILE_ROUGHNESS: f32 = 0.8;
+pub const BLACK_STONE_METALLIC: f32 = 0.3;
+pub const BLACK_STONE_ROUGHNESS: f32 = 0.4;
+pub const WHITE_STONE_METALLIC: f32 = 0.0;
+pub const WHITE_STONE_ROUGHNESS: f32 = 0.7;

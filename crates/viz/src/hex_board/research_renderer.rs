@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use hexx::{Hex, HexLayout, HexOrientation};
 
 use super::components::*;
+use super::{darkhex_to_hex, pos_to_label};
 use crate::theme;
 
 /// Resource holding hex board layout and entity mappings.
@@ -27,32 +28,6 @@ pub struct BoardSizeRequest {
     pub changed: bool,
 }
 
-/// Convert darkhex (row, col) to hexx axial Hex coordinate.
-///
-/// DarkHex uses an offset-row layout where each row shifts right.
-/// The neighbor topology in board.rs:
-///   E=(r,c+1), W=(r,c-1), SW=(r+1,c), SE=(r+1,c-1), NE=(r-1,c), NW=(r-1,c+1)
-///
-/// This maps to axial coordinates: q = col, r = row (with appropriate offset).
-fn darkhex_to_hex(row: usize, col: usize) -> Hex {
-    // Offset-row (odd-row offset) for flat-top hex:
-    // axial_q = col - (row - (row & 1)) / 2
-    // axial_r = row
-    // But we need to match the specific darkhex topology.
-    // For flat-top with even-row offset:
-    let q = col as i32 - (row as i32) / 2;
-    let r = row as i32;
-    Hex::new(q, r)
-}
-
-/// Convert linear position to alphanumeric label (a1, b2, etc.).
-fn pos_to_label(pos: usize, cols: usize) -> String {
-    let row = pos / cols;
-    let col = pos % cols;
-    let row_char = (b'a' + row as u8) as char;
-    format!("{}{}", row_char, col + 1)
-}
-
 /// Spawn the hex board for a given size.
 pub fn spawn_board(
     mut commands: Commands,
@@ -70,7 +45,7 @@ pub fn spawn_board(
     };
 
     // Create shared hex mesh (flat-top regular polygon)
-    // RegularPolygon creates pointy-top by default; we rotate 30° for flat-top
+    // RegularPolygon creates pointy-top by default; we rotate 30 degrees for flat-top
     let hex_shape = RegularPolygon::new(theme::HEX_SIZE, 6);
     let hex_mesh = meshes.add(Mesh::from(hex_shape));
 
@@ -203,4 +178,19 @@ pub fn handle_board_resize(
 
     // Spawn new board
     spawn_board(commands, meshes, materials, board_req.into());
+}
+
+/// Despawn all research board entities and remove the board state resource.
+pub fn despawn_research_board(
+    mut commands: Commands,
+    board_query: Query<Entity, With<HexBoardMarker>>,
+    label_query: Query<Entity, With<CellLabel>>,
+) {
+    for entity in board_query.iter() {
+        commands.entity(entity).despawn();
+    }
+    for entity in label_query.iter() {
+        commands.entity(entity).try_despawn();
+    }
+    commands.remove_resource::<HexBoardState>();
 }

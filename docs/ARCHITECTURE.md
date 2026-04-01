@@ -2,48 +2,64 @@
 
 ## Overview
 
-DarkHex is a research toolkit for solving Dark Hex (imperfect-information Hex) using game-theoretic algorithms. The system has two layers:
+DarkHex is a research toolkit for solving Dark Hex (imperfect-information Hex) using game-theoretic algorithms. The system has three layers:
 
-- **Rust core** (`src/`): High-performance game engine — board representation, move generation, win detection, information state computation. Exposed to Python via PyO3.
-- **Python layer** (`darkhex/`): Algorithms (MCCFR variants), experiments, visualization, and paper figure generation. Calls into the Rust engine for all game logic.
+- **Rust core** (`crates/core/`): High-performance game engine — board representation, move generation, win detection, information state computation. Tabular solvers (MCCFR, exploitability, pONE).
+- **Python layer** (`darkhex/`): Neural algorithms, experiments, analysis, paper figure generation. Calls into the Rust engine via PyO3 (`crates/python/`).
+- **Web visualization** (`game/`): DSaGe (Dark Hex Strategy Generator) — Three.js isometric board viewer with toon cel-shading and interactive strategy exploration.
 
-This split gives us Rust-speed game tree traversal (the bottleneck in CFR) with Python-ergonomic algorithm development.
+The Rust workspace (`crates/`) produces three targets: `core` (pure engine), `python` (PyO3 bindings), and `wasm` (WebAssembly for the web app).
 
 ## Directory Structure
 
 ```
 darkhex/
-├── Cargo.toml              # Rust crate config
+├── Cargo.toml              # Workspace root (members = ["crates/*"])
 ├── pyproject.toml           # Python project (maturin build backend)
 ├── Makefile                 # Dev commands: build, test, lint, check
-├── src/                     # Rust game engine + solver
-│   ├── lib.rs               # PyO3 module entry (_engine)
-│   ├── game/                # Foundation layer (no external deps)
-│   │   ├── types.rs         # Player, Cell, CollisionRule enums
-│   │   ├── board.rs         # HexBoard + union-find win detection
-│   │   ├── state.rs         # DarkHexState (4 Dark Hex variants)
-│   │   └── enumerate.rs     # Memoized exhaustive info state enumeration
-│   └── solver/              # Algorithm layer (depends on game/)
-│       ├── mccfr.rs         # External + Outcome Sampling MCCFR
-│       ├── exploitability.rs # Best response + exploitability (memoized DFS)
-│       └── pone.rs          # pONE belief-space precomputation + PoneDb
-├── darkhex/                 # Python package (legacy + new)
-│   ├── _engine.pyi          # (planned) Type stubs for Rust module
-│   ├── algorithms/          # CFR variants
+├── crates/                  # Rust workspace
+│   ├── core/                # Game engine + tabular solvers
+│   │   └── src/
+│   │       ├── lib.rs       # Crate root (re-exports game + solver)
+│   │       ├── error.rs     # Error types
+│   │       ├── game/        # Foundation layer
+│   │       │   ├── types.rs # Player, Cell, CollisionRule enums
+│   │       │   ├── board.rs # HexBoard + union-find win detection
+│   │       │   ├── state.rs # DarkHexState (4 Dark Hex variants)
+│   │       │   └── enumerate.rs # Memoized info state enumeration
+│   │       └── solver/      # Algorithm layer (depends on game/)
+│   │           ├── mccfr.rs # External + Outcome Sampling MCCFR
+│   │           ├── exploitability.rs # Best response + exploitability
+│   │           ├── pone.rs  # pONE belief-space precomputation
+│   │           └── sip.rs   # SIP/SIP+ policy simplification
+│   ├── python/              # PyO3 bindings (maturin cdylib)
+│   │   └── src/lib.rs
+│   └── wasm/                # WebAssembly target for DSaGe
+│       └── src/lib.rs
+├── game/                    # DSaGe web app (Three.js + TypeScript)
+│   ├── src/
+│   │   ├── main.ts          # App entry point
+│   │   ├── board/           # Board visualization
+│   │   │   ├── IsometricHex.ts  # Hex geometry constants + palette
+│   │   │   ├── HexTile.ts      # Individual tile mesh + state
+│   │   │   └── BoardLayout.ts  # Grid layout + edge pieces
+│   │   ├── engine/          # Game logic interface
+│   │   │   └── GameEngine.ts
+│   │   ├── postprocess/     # Screen-space effects
+│   │   │   └── OutlinePostProcess.ts  # Cel-shading outlines
+│   │   └── scenes/          # Scene composition
+│   │       └── BoardScene.ts
+│   ├── package.json
+│   └── vite.config.ts
+├── darkhex/                 # Python package
+│   ├── algorithms/          # CFR variants (Python-side)
 │   └── utils/               # Shared utilities
 ├── tests/                   # Python integration tests
 ├── docs/                    # Documentation
-│   ├── ARCHITECTURE.md      # This file
-│   ├── RESEARCH_GUIDELINES.md
-│   ├── ALGORITHM_TEMPLATE.md
-│   ├── EXPERIMENT_TEMPLATE.md
-│   └── algorithms/          # Per-algorithm companion docs
-├── scripts/                 # Dev scripts
-│   └── run-check.sh         # Back-pressure wrapper (silent on success)
 └── internal_docs/           # Thesis reference (gitignored)
 ```
 
-## Game Engine (`src/`)
+## Game Engine (`crates/core/`)
 
 ### Design Decisions
 
@@ -152,12 +168,12 @@ This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 
 | Algorithm | Status | Location | Reference |
 |-----------|--------|----------|-----------|
-| Outcome Sampling MCCFR | **Implemented** | `src/solver/mccfr.rs` | Lanctot et al. 2009 |
-| External Sampling MCCFR | **Implemented** | `src/solver/mccfr.rs` | Lanctot et al. 2009 |
-| Game tree enumeration | **Implemented** | `src/game/enumerate.rs` | — |
-| Best Response / Exploitability | **Implemented** | `src/solver/exploitability.rs` | Zinkevich et al. 2007 |
-| Isomorphic state reduction | **Implemented** | `src/game/state.rs` | 180° rotation symmetry |
-| pONE (probability-1 win states) | **Implemented** | `src/solver/pone.rs` | Bonnet 2018 / Thesis §4.2 |
+| Outcome Sampling MCCFR | **Implemented** | `crates/core/src/solver/mccfr.rs` | Lanctot et al. 2009 |
+| External Sampling MCCFR | **Implemented** | `crates/core/src/solver/mccfr.rs` | Lanctot et al. 2009 |
+| Game tree enumeration | **Implemented** | `crates/core/src/game/enumerate.rs` | — |
+| Best Response / Exploitability | **Implemented** | `crates/core/src/solver/exploitability.rs` | Zinkevich et al. 2007 |
+| Isomorphic state reduction | **Implemented** | `crates/core/src/game/state.rs` | 180° rotation symmetry |
+| pONE (probability-1 win states) | **Implemented** | `crates/core/src/solver/pone.rs` | Bonnet 2018 / Thesis §4.2 |
 | SimPly (policy simplification) | Planned (port) | — | Thesis |
 | SimPly+ (fractionized) | Planned (port) | — | Thesis |
 | pONE (sure-win pruning) | Planned | — | Thesis |
@@ -185,29 +201,36 @@ Each experiment follows `docs/EXPERIMENT_TEMPLATE.md`:
 | 3x2 Dark Hex | TBD | — |
 | 4x3 Dark Hex | ε improved 0.156 → 0.002 | Thesis |
 
-## Web Visualization
+## Web Visualization — DSaGe (`game/`)
 
-Planned: NiceGUI-based web viewer for:
+DSaGe (Dark Hex Strategy Generator) is a Three.js web app for interactive strategy exploration.
+
+**Tech stack**: TypeScript, Three.js, Vite, toon cel-shading
+
+**Visual features**:
+- Isometric hex board with flat-top tiles (MeshToonMaterial)
+- Screen-space post-processing outlines (depth + normal + object ID edge detection)
+- 3D chevron edge pieces forming zigzag border bands (Blue=Black, Red=White)
+- Interactive stone placement with hover raise animation
+
+**Planned features**:
+- Strategy walker (step through MCCFR policies)
 - Game tree exploration
-- Policy visualization
 - Live MCCFR convergence plots
-
-Replaces old GTK3/tkinter GUI (`darkhex/gui/`).
+- WASM integration with `crates/wasm/` for client-side game logic
 
 ## Data Flow
 
 ```
-DarkHexState (Rust)
-    ↓ PyO3
-MCCFR algorithms (Python)
-    ↓
-Policy (Dict[info_state_str, Dict[action, probability]])
+DarkHexState (Rust, crates/core/)
+    ↓ PyO3 (crates/python/)          ↓ WASM (crates/wasm/)
+MCCFR algorithms (Python)         DSaGe web app (game/)
+    ↓                                 ↓
+Policy (Dict[str, Dict[int, f]])   Interactive strategy viewer
     ↓
 Experiment runner (Python)
     ↓
 Results (JSON/pickle)
     ↓
 matplotlib/seaborn → Paper figures
-    ↓
-NiceGUI → Interactive exploration
 ```

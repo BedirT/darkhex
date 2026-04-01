@@ -11,13 +11,14 @@ Research toolkit for solving Dark Hex (imperfect-information Hex) using game-the
 - Testing: pytest + hypothesis (property-based)
 - Type checking: pyright
 - Linting: ruff
-- Visualization: matplotlib + seaborn (paper), NiceGUI (web viz)
+- Visualization: matplotlib + seaborn (paper), Three.js/DSaGe (web viz)
 - DL interop: PyTorch/JAX via Python interface to Rust game states
 
 ## Architecture
 
-- Rust: game engine + tabular algorithms (MCCFR) + VecEnv (batched game stepping) + exploitability + pONE
-- Python: neural algorithms (NFSP, Deep CFR, ReBeL via PyTorch) + SIP/SIP+ + experiments + analysis + viz
+- Rust workspace (`crates/`): `core` (game engine + tabular solvers), `python` (PyO3 bindings), `wasm` (WebAssembly for DSaGe)
+- Python (`darkhex/`): neural algorithms (NFSP, Deep CFR, ReBeL via PyTorch) + SIP/SIP+ + experiments + analysis
+- Web (`game/`): DSaGe — Three.js isometric board viewer with toon cel-shading, TypeScript, Vite
 - Tabular MCCFR MUST be pure Rust (no PyO3 in hot loop). Neural approaches use Rust VecEnv with batched tensor exchange.
 - Memory optimization is a hard constraint — f32 regrets, integer info state keys, lazy allocation. See docs/DECISIONS.md.
 

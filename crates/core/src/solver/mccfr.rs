@@ -83,8 +83,8 @@ pub struct MCCFRSolver {
     iterations: usize,
     rows: usize,
     cols: usize,
-    pub sampling: Sampling,
-    pub epsilon: f32,
+    sampling: Sampling,
+    epsilon: f32,
     rng: SmallRng,
     /// Optional pONE database for pruning determined subtrees.
     pone_db: Option<PoneDb>,
@@ -120,6 +120,14 @@ impl MCCFRSolver {
             rng: SmallRng::seed_from_u64(seed.unwrap_or(42)),
             pone_db: None,
         })
+    }
+
+    pub fn sampling(&self) -> Sampling {
+        self.sampling
+    }
+
+    pub fn epsilon(&self) -> f32 {
+        self.epsilon
     }
 
     /// Set an optional pONE database for pruning determined subtrees.

@@ -48,7 +48,7 @@ fn outcome_discovers_all_2x2_canonical_info_states() {
 #[test]
 fn outcome_default_sampling() {
     let solver = MCCFRSolver::new(2, 2, None, None, None).unwrap();
-    assert_eq!(solver.sampling, Sampling::Outcome);
+    assert_eq!(solver.sampling(), Sampling::Outcome);
 }
 
 #[test]

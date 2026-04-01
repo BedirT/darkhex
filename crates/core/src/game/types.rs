@@ -19,6 +19,15 @@ impl Player {
         }
     }
 
+    /// Fallible version of `from_index` for FFI boundaries.
+    pub fn try_from_index(i: usize) -> Option<Self> {
+        match i {
+            0 => Some(Player::Black),
+            1 => Some(Player::White),
+            _ => None,
+        }
+    }
+
     pub fn opponent(self) -> Player {
         match self {
             Player::Black => Player::White,

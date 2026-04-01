@@ -241,6 +241,25 @@ export function createOutlineComposer(
   // ── Per-frame render ───────────────────────────────────────────────────
   const _clearCol = new THREE.Color()
 
+  // Pre-allocate arrays for object ID pass to avoid per-frame Map/GC churn.
+  let _meshList: THREE.Mesh[] = []
+  let _savedMats: (THREE.Material | THREE.Material[])[] = []
+  let _meshListDirty = true
+  // Mark dirty when scene graph changes (meshes added/removed).
+  const _origAdd = scene.add.bind(scene)
+  const _origRemove = scene.remove.bind(scene)
+  scene.add = (...args: THREE.Object3D[]) => { _meshListDirty = true; return _origAdd(...args) }
+  scene.remove = (...args: THREE.Object3D[]) => { _meshListDirty = true; return _origRemove(...args) }
+
+  function rebuildMeshList(): void {
+    _meshList = []
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) _meshList.push(obj)
+    })
+    _savedMats = new Array(_meshList.length)
+    _meshListDirty = false
+  }
+
   function render(): void {
     const prevClear = renderer.getClearColor(_clearCol).clone()
     const prevAlpha = renderer.getClearAlpha()
@@ -260,20 +279,20 @@ export function createOutlineComposer(
     renderer.render(scene, camera)
 
     // Pre-pass 3: object IDs (each mesh gets a unique flat color)
-    // Swap all mesh materials to unique ID colors, render full scene, restore.
-    const savedMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>()
-    scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        savedMaterials.set(obj, obj.material)
-        obj.material = getIdMaterial(obj)
-      }
-    })
+    // Uses pre-allocated arrays instead of per-frame Map to avoid GC churn.
+    if (_meshListDirty) rebuildMeshList()
+    for (let i = 0; i < _meshList.length; i++) {
+      _savedMats[i] = _meshList[i].material
+      _meshList[i].material = getIdMaterial(_meshList[i])
+    }
     renderer.setRenderTarget(objectIdTarget)
     renderer.setClearColor(0x000000, 1.0)
     renderer.clear()
     renderer.render(scene, camera)
     // Restore original materials
-    savedMaterials.forEach((mat, mesh) => { mesh.material = mat })
+    for (let i = 0; i < _meshList.length; i++) {
+      _meshList[i].material = _savedMats[i]
+    }
 
     // Restore
     scene.overrideMaterial = null

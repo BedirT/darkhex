@@ -80,7 +80,6 @@ function buildChevronShape(
   edgeW: number,
 ): THREE.Shape {
   const scale = (R + edgeW) / R
-  const a = worldEdges[0]
   const b = worldEdges[worldEdges.length - 1]
   const numVerts = worldEdges.length + 1
 
@@ -221,10 +220,6 @@ export class BoardLayout3D {
       const a = (Math.PI / 3) * i
       verts.push([innerR * Math.cos(a), innerR * Math.sin(a)])
     }
-
-    // Shared materials (side + top per colour, matches HexTile3D pattern)
-    const blackMats = [toonMat(PALETTE.edgeBlackSide), toonMat(PALETTE.edgeBlackTop)]
-    const whiteMats = [toonMat(PALETTE.edgeWhiteSide), toonMat(PALETTE.edgeWhiteTop)]
 
     // Collect geometries per colour, then merge into one mesh each.
     // This eliminates outline artifacts at junctions between adjacent chevrons.

@@ -349,7 +349,7 @@ impl DarkHexState {
     }
 
     /// Flat view of board from a player's perspective.
-    /// -1 = hidden (appears empty), 0 = empty, 1 = black, 2 = white.
+    /// 0 = empty/hidden (appears empty to player), 1 = black, 2 = white.
     pub fn player_view_flat(&self, player: Player) -> Vec<i8> {
         let pi = player.index();
         self.player_views[pi]

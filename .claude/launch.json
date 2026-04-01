@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "game-dev",
+      "runtimeExecutable": "/Users/bedirt/.nvm/versions/node/v22.12.0/bin/npx",
+      "runtimeArgs": ["vite", "--port", "5173"],
+      "port": 5173,
+      "cwd": "game",
+      "env": {
+        "PATH": "/Users/bedirt/.nvm/versions/node/v22.12.0/bin:/opt/homebrew/bin:/usr/bin:/bin"
+      }
+    }
+  ]
+}

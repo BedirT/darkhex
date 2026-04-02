@@ -117,12 +117,14 @@ export const PALETTE = {
   whiteSide:   0xb8becf,
   whiteHi:     0x7b86a6,
 
-  edgeBlackTop:  0x5c6bc0,
-  edgeBlackSide: 0x3949ab,
-  edgeWhiteTop:  0xef9a9a,
-  edgeWhiteSide: 0xe53935,
+  edgeBlackTop:  0x4c556b,
+  edgeBlackSide: 0x373d4d,
+  edgeWhiteTop:  0xd6dae4,
+  edgeWhiteSide: 0xb8becf,
 
   lastTop:     0xccaaaa,
+  selectedTop: 0x81c784,   // soft green — selected tile in strategy mode
+  selectedSide:0x66a869,
 
   platform:    0xffffff,
   platformEdge:0xcccccc,

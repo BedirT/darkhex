@@ -7,9 +7,11 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - Date: 2026-04-02
 - EXP-004: Deep CFR prototype (Brown et al., ICML 2019)
   - Implemented full Deep CFR: External Sampling + neural advantage/strategy nets
-  - 2x2 CDH: expl 1.0 → 0.04 in 20 CFR iterations (~10s total)
-  - 3x2 CDH: expl 1.0 → 0.08 in 20 CFR iterations (~70s total)
+  - 2x2 CDH: expl 1.0 → 0.012 in 100 CFR iterations (91s, K=200)
+  - 3x2 CDH: expl 1.0 → 0.055 in 50 CFR iterations (291s, K=200)
+  - 3x3 CDH: expl 1.0 → 0.86 in 30 CFR iterations (618s, K=5 — needs more K)
   - 4x3 CDH: External Sampling infeasible (single traversal >30s, exponential in branching)
+  - Optimized extract_strategy: game state memoization reduces 3x3 eval from >10min to 5.4s
   - Key finding: neural approximation converges well; bottleneck is ES traversal, not NNs
   - Next: implement DREAM (Outcome Sampling variant) for 4x3+
 - Exposed canonical_info_state() in Python bindings for isomorphic reduction
@@ -52,7 +54,7 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] 117 tests (54 Rust + 63 Python), all passing
 - [x] EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 (clairvoyant BR)
 - [x] Deep CFR prototype: External Sampling + neural advantage/strategy nets
-- [x] EXP-004: Deep CFR on 2x2 (expl 0.04), 3x2 (expl 0.08) — verified convergence
+- [x] EXP-004: Deep CFR on 2x2 (expl 0.012), 3x2 (expl 0.055), 3x3 (expl 0.86)
 - [x] canonical_info_state() exposed in Python bindings
 - [x] PyTorch optional dependency + 22 Deep CFR tests
 - [x] pONE AND-OR fix: belief-space search replaces per-config minimax

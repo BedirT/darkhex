@@ -30,6 +30,9 @@ dev = [
 ]
 
 [project.optional-dependencies]
+neural = [
+    "torch>=2.0",
+]
 plot = [
     "matplotlib>=3.8",
     "seaborn>=0.13",

@@ -4,6 +4,19 @@
 Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
+- Date: 2026-04-02
+- EXP-004: Deep CFR prototype (Brown et al., ICML 2019)
+  - Implemented full Deep CFR: External Sampling + neural advantage/strategy nets
+  - 2x2 CDH: expl 1.0 → 0.04 in 20 CFR iterations (~10s total)
+  - 3x2 CDH: expl 1.0 → 0.08 in 20 CFR iterations (~70s total)
+  - 4x3 CDH: External Sampling infeasible (single traversal >30s, exponential in branching)
+  - Key finding: neural approximation converges well; bottleneck is ES traversal, not NNs
+  - Next: implement DREAM (Outcome Sampling variant) for 4x3+
+- Exposed canonical_info_state() in Python bindings for isomorphic reduction
+- Added PyTorch as optional dependency (neural group)
+- 100 tests (54 Rust + 22 Deep CFR + 78 Python total), all passing
+
+## Previous Session
 - Date: 2026-03-30
 - EXP-003 v3: MCCFR on 4x3 CDH — 1B iterations (thesis baseline)
   - Exploitability: 0.999 (1M) → 0.985 (100M) → 0.989 (1B) — plateaus
@@ -38,6 +51,10 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] Fixed strategy-action index bug in get_average_strategy()
 - [x] 117 tests (54 Rust + 63 Python), all passing
 - [x] EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 (clairvoyant BR)
+- [x] Deep CFR prototype: External Sampling + neural advantage/strategy nets
+- [x] EXP-004: Deep CFR on 2x2 (expl 0.04), 3x2 (expl 0.08) — verified convergence
+- [x] canonical_info_state() exposed in Python bindings
+- [x] PyTorch optional dependency + 22 Deep CFR tests
 - [x] pONE AND-OR fix: belief-space search replaces per-config minimax
 - [x] pONE MCCFR pruning disabled (causes missing strategies in subtrees)
 - [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
@@ -47,9 +64,9 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
+- [ ] Implement DREAM (Outcome Sampling Deep CFR) for 4x3+ boards
 - [ ] Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
 - [ ] Run 10B iterations (resume from 1B checkpoint)
-- [ ] Deep CFR or ReBeL prototype (neural approach may converge faster on 4x3)
 - [ ] PR: merge experiment/exp003-4x3-mccfr → re-dev
 
 ## Decisions Made
@@ -66,6 +83,7 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - src/ organized: game/ (foundation) + solver/ (algorithms) (2026-03-28)
 
 ## Failed Approaches
+- Deep CFR External Sampling on 4x3: single traversal >30s, exponential in branching factor. ES explores ALL actions at traverser nodes. 3x3 = 14.4s/traversal, 4x3 = infeasible. Need Outcome Sampling variant (DREAM) for 4x3+ (2026-04-02)
 - External Sampling on 3x3: 7 iters/s, exponential in branching factor
 - OS-MCCFR with epsilon at all nodes: biased importance weights (3 bugs)
 - Naive DFS enumeration: 6.2h on 3x3 (9.47B terminals)

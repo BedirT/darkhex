@@ -126,3 +126,52 @@ Each entry: **Date — Decision title**
 - **Alternatives**: Always enable extension-module, separate test crate
 - **Rationale**: With feature gating, `cargo test` links against Python and runs Rust tests directly. `maturin develop` passes `--features extension-module` for the cdylib. Without this, `cargo test` fails with undefined Python symbols.
 - **Status**: Active
+
+## 2026-04-02 — Deep CFR: External Sampling traversal
+
+- **Choice**: External Sampling (ES) for initial Deep CFR prototype
+- **Alternatives**: Outcome Sampling (DREAM variant), full game tree traversal
+- **Rationale**: The Deep CFR paper (Brown et al., ICML 2019) uses ES exclusively and provides convergence guarantees for it. ES explores all actions at traverser nodes and samples one at opponent nodes, giving unbiased advantage estimates for all actions simultaneously. This is important because the advantage network needs training data for every action at each info state.
+- **Status**: Active for 2x2/3x2; **infeasible for 4x3+** (single traversal >30s due to exponential branching O(|A|^d)). DREAM (Steinberger et al. 2020) needed for larger boards.
+
+## 2026-04-02 — Deep CFR: Neural architecture
+
+- **Choice**: Simple MLP with LayerNorm: `input → [Linear→ReLU]* → LayerNorm → Linear → [Softmax]`
+- **Alternatives**: CNN on board grid, GNN on hex graph, Transformer
+- **Rationale**: Paper and OpenSpiel reference both use MLP with LayerNorm on last hidden layer. 4x3 Dark Hex (~184k canonical info states) is tiny by DL standards — a 64-128 hidden unit MLP with 2 layers is sufficient. Architecture can be upgraded later if needed.
+- **Status**: Active — verified on 2x2 (expl 0.04) and 3x2 (expl 0.08)
+
+## 2026-04-02 — Deep CFR: Isomorphic reduction for neural
+
+- **Choice**: Canonicalize info states via 180° rotation before encoding for neural networks
+- **Alternatives**: Let NN learn symmetry implicitly, data augmentation (train on both orientations)
+- **Rationale**: Halves effective state space (~184k→~92k for 4x3). The Rust engine already has `canonical_info_state()` (used by tabular MCCFR). Matching canonical key format simplifies strategy extraction and exploitability comparison. Action rotation: `action → n-1-action`.
+- **Status**: Active — exposed `canonical_info_state()` in PyO3 bindings
+
+## 2026-04-02 — Deep CFR: Key algorithmic choices
+
+- **Choice**: (1) Advantage net reinitialized from scratch each CFR iteration, (2) Argmax tiebreaker when all regrets ≤ 0, (3) LCFR weighting via sqrt(t) trick, (4) Reservoir sampling (not sliding window), (5) Strategy samples at opponent nodes during traversal
+- **Alternatives**: Fine-tune advantage net, uniform tiebreaker, vanilla CFR weighting, sliding window buffer, separate strategy collection pass
+- **Rationale**: All choices validated by paper ablations (Figure 4): reinitialization gives ~50% lower exploitability vs fine-tuning; argmax gives ~50% lower vs uniform; reservoir sampling converges indefinitely while sliding window stalls at buffer capacity. LCFR weighting follows Brown & Sandholm (2019). Strategy collection at opponent nodes follows paper Algorithm 2 exactly.
+- **Status**: Active
+
+## 2026-04-02 — Deep CFR implementation
+
+- **Choice**: Implement Deep CFR (Brown et al., ICML 2019) with External Sampling traversal, isomorphic reduction, and LCFR weighting. PyTorch as optional dependency.
+- **Alternatives**: (A) ReBeL — more complex, requires value network + subgame solving. (B) NFSP — RL-based, different convergence guarantees. (C) Single Deep CFR — simpler but less tested.
+- **Rationale**: Deep CFR is the simplest neural CFR variant with strong theoretical backing (ε-Nash convergence). External Sampling matches the paper exactly. LCFR weighting, advantage net reinitialization, and argmax tiebreaker are all validated by paper ablations.
+- **Status**: Active — ES works for ≤3x2. DREAM (Outcome Sampling variant) needed for 4x3+.
+
+## 2026-04-02 — External Sampling infeasible for 4x3+
+
+- **Choice**: Accept ES infeasibility for boards ≥3x3 in Deep CFR. Plan DREAM (Steinberger et al., 2020) as follow-up.
+- **Alternatives**: (A) Batched ES — still exponential per traversal. (B) Depth-limited ES — biased. (C) Move to Rust for traversal — marginally faster but still exponential.
+- **Rationale**: ES explores ALL actions at traverser nodes, giving O(|A|^d) per traversal. Measured: 2x2=0.00s, 3x2=0.07s, 3x3=14.4s, 4x3=∞. The exponential scaling is fundamental to ES, not a Python overhead issue. DREAM uses Outcome Sampling (O(depth) per traversal) with importance-weighted advantages.
+- **Status**: Active — blocking 4x3 neural experiments
+
+## 2026-04-02 — Isomorphic reduction in neural algorithms
+
+- **Choice**: Use canonical info states (180° rotation) in Deep CFR. Exposed `canonical_info_state()` via PyO3.
+- **Alternatives**: (A) Skip — let NN learn symmetry implicitly. (B) Data augmentation — train on both original and rotated.
+- **Rationale**: Halves effective state space (~184k→~92k for 4x3). Matching the tabular MCCFR's canonical key format simplifies exploitability comparison. The Rust method already existed; just needed a one-line PyO3 binding.
+- **Status**: Active

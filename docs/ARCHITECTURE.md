@@ -184,6 +184,7 @@ state.apply_action(action)           # make a move
 state.is_terminal()                  # game over?
 state.returns()                      # [black_payoff, white_payoff]
 state.info_state_string(player)      # info set key for CFR
+state.canonical_info_state(player)   # (canonical_key, is_canonical) for isomorphic reduction
 state.copy()                         # branch for tree traversal
 ```
 
@@ -199,9 +200,11 @@ This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 | Best Response / Exploitability | **Implemented** | `crates/core/src/solver/exploitability.rs` | Zinkevich et al. 2007 |
 | Isomorphic state reduction | **Implemented** | `crates/core/src/game/state.rs` | 180° rotation symmetry |
 | pONE (probability-1 win states) | **Implemented** | `crates/core/src/solver/pone.rs` | Bonnet 2018 / Thesis §4.2 |
-| SimPly (policy simplification) | Planned (port) | — | Thesis |
-| SimPly+ (fractionized) | Planned (port) | — | Thesis |
-| pONE (sure-win pruning) | Planned | — | Thesis |
+| SIP (policy simplification) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.4 |
+| SIP+ (fractionized) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.5 |
+| Deep CFR | **Implemented** | `darkhex/algorithms/deep_cfr.py` | Brown et al. ICML 2019 |
+| DREAM (Outcome Sampling Deep CFR) | Planned | — | Steinberger et al. 2020 |
+| NFSP | Planned | — | Heinrich & Silver 2016 |
 
 ## Experiment Pipeline
 
@@ -285,13 +288,14 @@ Ported from the old Python/Tkinter `darkhex/gui/` PolGen tool. Lets researchers 
 ```
 DarkHexState (Rust, crates/core/)
     ↓ PyO3 (crates/python/)          ↓ WASM (crates/wasm/)
-MCCFR algorithms (Python)         DSaGe web app (game/)
-    ↓                                 ↓                         ↓
-Policy (Dict[str, Dict[int, f]])   Interactive play mode     Strategy generator
-    ↓                                                          ↓
-Experiment runner (Python)                              InfoStateOps (WASM)
-    ↓                                                          ↓
-Results (JSON/pickle)                                   Policy (JSON export)
+Tabular: MCCFR (Rust)             DSaGe web app (game/)
+Neural: Deep CFR (Python+PyTorch)     ↓                         ↓
+    ↓                              Interactive play mode     Strategy generator
+Policy (Dict[str, List[(int, f)]])                             ↓
+    ↓                                                    InfoStateOps (WASM)
+Experiment runner (Python)                                     ↓
+    ↓                                                    Policy (JSON export)
+Results (JSON/CSV)
     ↓
 matplotlib/seaborn → Paper figures
 ```

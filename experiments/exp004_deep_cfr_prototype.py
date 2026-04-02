@@ -119,7 +119,7 @@ def run_experiment(
     num_traversals: int | None,
     seed: int,
 ) -> None:
-    board_cfg = CONFIGS[board]
+    board_cfg = dict(CONFIGS[board])  # copy to avoid mutating module-level default
     if num_traversals is not None:
         board_cfg["num_traversals"] = num_traversals
 

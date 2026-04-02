@@ -57,11 +57,24 @@ class TestEncodeInfoState:
         assert t[2].item() == 0.0  # empty
 
     def test_opponent_stone(self):
-        """'o' should encode as [0, 1, 0] (opponent)."""
+        """'o' for P0 (Black) should encode as [0, 1, 0] (opponent)."""
         t = encode_info_state("P0\no.\n..", 2, 2)
         assert t[0].item() == 0.0  # own
         assert t[1].item() == 1.0  # opp
         assert t[2].item() == 0.0  # empty
+
+    def test_white_encoding_flipped(self):
+        """For P1 (White): 'o' = own, 'x' = opponent (absolute colors)."""
+        # White sees own stone as 'o', opponent (Black) stone as 'x'
+        t = encode_info_state("P1\no.\n..", 2, 2)
+        assert t[0].item() == 1.0  # own (o = White's own)
+        assert t[1].item() == 0.0  # opp
+        assert t[2].item() == 0.0  # empty
+
+        t2 = encode_info_state("P1\nx.\n..", 2, 2)
+        assert t2[0].item() == 0.0  # own
+        assert t2[1].item() == 1.0  # opp (x = Black, opponent of White)
+        assert t2[2].item() == 0.0  # empty
 
 
 # ── Reservoir buffer tests ────────────────────────────────────────────────

@@ -37,12 +37,19 @@ def encode_info_state(info_state_str: str, rows: int, cols: int) -> torch.Tensor
     player = int(lines[0][1])
     grid = "".join(lines[1:])
 
+    # Info state uses absolute colors: x = Black stone, o = White stone.
+    # We encode player-relative: own/opponent/empty.
+    # For P0 (Black): x = own, o = opponent
+    # For P1 (White): x = opponent, o = own
+    own_char = "x" if player == 0 else "o"
+    opp_char = "o" if player == 0 else "x"
+
     n = rows * cols
     features = np.zeros(3 * n + 1, dtype=np.float32)
     for i, ch in enumerate(grid):
-        if ch == "x":
+        if ch == own_char:
             features[3 * i] = 1.0  # own
-        elif ch == "o":
+        elif ch == opp_char:
             features[3 * i + 1] = 1.0  # opponent
         else:  # '.'
             features[3 * i + 2] = 1.0  # empty

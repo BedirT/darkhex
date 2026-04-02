@@ -295,6 +295,7 @@ export class BoardScene {
   private _rebuildBoard(rows: number, cols: number): void {
     this._clearBoardFromScene()
     this.board = new BoardLayout3D(this.scene, rows, cols)
+    this.outlineRender.invalidateMeshList()
 
     const [cx, , cz] = boardCenter(rows, cols)
     const dist = 14
@@ -461,7 +462,7 @@ export class BoardScene {
       assigned,
       remaining,
       player: this.stratGen.player,
-      isCollision: false,
+      isCollision: this.stratGen.lastCollisionIndex !== null,
     })
   }
 

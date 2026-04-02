@@ -76,8 +76,8 @@ export class StrategyGenerator {
     // Normalize
     for (let i = 0; i < probs.length; i++) probs[i] /= sum
 
-    // Enumerate successors
-    const addition = this._enumerateSuccessors(actions)
+    // Enumerate successors (skip zero-prob actions)
+    const addition = this._enumerateSuccessors(actions, probs)
     return this._advance(actions, probs, addition, false)
   }
 
@@ -122,15 +122,18 @@ export class StrategyGenerator {
     return false
   }
 
-  /** Enumerate successor info states with collision branching. Returns count added to stack. */
-  private _enumerateSuccessors(actions: number[]): number {
+  /** Enumerate successor info states with collision branching. Returns count added to stack.
+   *  Skips actions with zero probability (no point exploring unreachable branches). */
+  private _enumerateSuccessors(actions: number[], probs?: number[]): number {
     const { player, perfectRecall } = this.config
     const opponent = 1 - player
     const collisionPossible = this.infoOps.isCollisionPossible(this.currentInfoState)
     const stonePlayersToTry = collisionPossible ? [player, opponent] : [player]
 
     let addition = 0
-    for (const action of actions) {
+    for (let i = 0; i < actions.length; i++) {
+      if (probs && probs[i] <= 0) continue
+      const action = actions[i]
       for (const stonePlayer of stonePlayersToTry) {
         const nextState = this.infoOps.infoStateAfterAction(
           this.currentInfoState, action, stonePlayer, perfectRecall,

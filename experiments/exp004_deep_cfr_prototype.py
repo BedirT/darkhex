@@ -47,6 +47,15 @@ CONFIGS = {
         strategy_train_steps=500,
         buffer_size=100_000,
     ),
+    "3x3": dict(
+        rows=3,
+        cols=3,
+        hidden_sizes=(128, 128),
+        num_traversals=5,
+        advantage_train_steps=200,
+        strategy_train_steps=1000,
+        buffer_size=500_000,
+    ),
     "4x3": dict(
         rows=4,
         cols=3,

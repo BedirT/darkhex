@@ -63,14 +63,14 @@ class ReservoirBuffer:
     Pre-allocates numpy arrays on first append (lazy init).
     """
 
-    def __init__(self, capacity: int) -> None:
+    def __init__(self, capacity: int, seed: int | None = None) -> None:
         self.capacity = capacity
         self._count = 0  # total appends seen
         self._size = 0  # entries currently stored
         self._info_states: np.ndarray | None = None
         self._iterations: np.ndarray | None = None
         self._values: np.ndarray | None = None
-        self._rng = np.random.default_rng()
+        self._rng = np.random.default_rng(seed)
 
     def _init_arrays(self, info_dim: int, val_dim: int) -> None:
         self._info_states = np.zeros((self.capacity, info_dim), dtype=np.float32)
@@ -212,10 +212,14 @@ class DeepCFR:
         )
 
         # Reservoir buffers: one advantage buffer per player, one strategy buffer
+        # Use derived seeds for deterministic replay buffer sampling.
         self._advantage_buffers = [
-            ReservoirBuffer(cfg.buffer_size) for _ in range(2)
+            ReservoirBuffer(cfg.buffer_size, seed=cfg.seed + 1),
+            ReservoirBuffer(cfg.buffer_size, seed=cfg.seed + 2),
         ]
-        self._strategy_buffer = ReservoirBuffer(cfg.buffer_size)
+        self._strategy_buffer = ReservoirBuffer(
+            cfg.buffer_size, seed=cfg.seed + 3
+        )
 
         # Strategy net optimizer persists across iterations
         self._strategy_optimizer = torch.optim.Adam(
@@ -232,6 +236,11 @@ class DeepCFR:
         """Run Deep CFR for the specified number of CFR iterations."""
         T = num_cfr_iters or self.cfg.num_cfr_iters
         for _ in range(T):
+            # 1-based iteration counter, same for both players in this
+            # outer CFR iteration. This ensures LCFR weighting (sqrt(t))
+            # treats both players' data from the same iteration equally.
+            self._iteration += 1
+
             for player in range(2):
                 # K traversals per player
                 for _ in range(self.cfg.num_traversals):
@@ -240,7 +249,6 @@ class DeepCFR:
 
                 # Train advantage net (reinitialize first)
                 self._train_advantage_net(player)
-                self._iteration += 1
 
             # Train strategy net after both players
             self._train_strategy_net()
@@ -468,11 +476,22 @@ class DeepCFR:
                 ).unsqueeze(0)
                 probs = self._strategy_net(x).squeeze(0)
 
-            result[canonical_str] = [
-                (ca, probs[ca].item())
-                for ca in canonical_actions
-                if probs[ca].item() > 1e-6
-            ]
+            # Renormalize over legal actions only — the softmax output
+            # spreads mass across all cells including illegal ones.
+            legal_probs = {ca: probs[ca].item() for ca in canonical_actions}
+            total = sum(legal_probs.values())
+            if total > 1e-8:
+                result[canonical_str] = [
+                    (ca, p / total)
+                    for ca, p in legal_probs.items()
+                    if p / total > 1e-6
+                ]
+            else:
+                # Fallback to uniform over legal actions
+                n_legal = len(canonical_actions)
+                result[canonical_str] = [
+                    (ca, 1.0 / n_legal) for ca in canonical_actions
+                ]
 
         for action in state.legal_actions():
             child = state.copy()

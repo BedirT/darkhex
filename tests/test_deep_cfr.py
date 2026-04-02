@@ -236,7 +236,7 @@ class TestDeepCFRIntegration:
         )
         solver = DeepCFR(cfg)
         solver.solve()
-        assert solver.iteration == 6  # 3 iters * 2 players
+        assert solver.iteration == 3  # 3 outer CFR iterations (1-based)
 
     def test_2x2_strategy_valid(self):
         """Extracted strategy has valid probability distributions."""

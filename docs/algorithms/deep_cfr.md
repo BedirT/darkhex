@@ -91,14 +91,14 @@ uv run python experiments/exp004_deep_cfr_prototype.py --board 4x3
 ## Expected Output
 
 **2x2 CDH** (100 CFR iterations, K=200):
-- Exploitability drops from 1.0 to **0.012** (91s total)
+- Exploitability drops from 1.0 to **0.018** (94s total)
 - Tabular OS-MCCFR reaches 0.0001 at 100k iters — neural is less precise but converges
 
 **3x2 CDH** (50 CFR iterations, K=200):
-- Exploitability drops from 1.0 to **0.055** (291s total)
+- Exploitability drops from 1.0 to **0.045** (324s total)
 
 **3x3 CDH** (30 CFR iterations, K=5):
-- Exploitability drops from 1.0 to **0.86** — K=5 too few for 6,334 canonical info states
+- Exploitability drops from 1.0 to **0.60** — K=5 too few for 6,334 canonical info states
 - Each ES traversal takes ~14s; needs DREAM (Outcome Sampling) for efficient convergence
 
 **4x3 CDH**: External Sampling infeasible (>30s per traversal). DREAM required.

@@ -13,8 +13,8 @@ This project builds on the CFR (Counterfactual Regret Minimization) family of al
 - Stop and ask rather than guessing at mathematical/theoretical questions
 - Reference the thesis for established results: `internal_docs/thesis_write_up/thesis.pdf`
 - Known equilibrium bounds for verification:
-  - 2x2 Dark Hex: exploitability ~0.02 at 50k tabular OS-MCCFR iters; ~0.04 at 20 Deep CFR iters
-  - 3x2 Dark Hex: exploitability ~0.08 at 20 Deep CFR iters (tabular TBD)
+  - 2x2 Dark Hex: exploitability ~0.0001 at 100k tabular OS-MCCFR iters; ~0.018 at 100 Deep CFR iters
+  - 3x2 Dark Hex: exploitability ~0.027 at 100k tabular OS-MCCFR iters; ~0.045 at 50 Deep CFR iters
   - 4x3 Dark Hex: thesis ε improved 0.156 → 0.002 (Ab-BR metric, 1B iters + SIP+); tabular OS-MCCFR plateaus at ~0.989 (clairvoyant BR, 1B iters)
 
 ## Algorithm Documentation Standard

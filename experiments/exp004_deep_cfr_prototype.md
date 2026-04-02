@@ -71,17 +71,17 @@ uv run python experiments/exp004_deep_cfr_prototype.py --board 4x3
 ## Results
 
 ### 2x2 CDH (100 CFR iterations, K=200 traversals)
-- Exploitability: 1.00 → 0.12 → 0.02 → **0.012** (converges to near-Nash)
-- ~0.9s per CFR iteration, 91s total
-- Comparable to tabular OS-MCCFR at 100k iterations (expl ~0.0001)
+- Exploitability: 1.00 → 0.04 → **0.018** (converges to near-Nash)
+- ~0.9s per CFR iteration, 94s total
+- Tabular OS-MCCFR at 100k iterations: expl ~0.0001
 
 ### 3x2 CDH (50 CFR iterations, K=200 traversals)
-- Exploitability: 1.00 → 0.33 → 0.07 → **0.055** (converges well)
-- ~6s per CFR iteration, 291s total
+- Exploitability: 1.00 → 0.34 → 0.13 → **0.045** (converges well)
+- ~6s per CFR iteration, 324s total
 
 ### 3x3 CDH (30 CFR iterations, K=5 traversals)
-- Exploitability: 1.00 → 0.97 → 0.88 → **0.86** (slow convergence with K=5)
-- ~20s per CFR iteration, 618s total
+- Exploitability: 1.00 → 0.93 → 0.78 → **0.60** (converging, needs more K)
+- ~22s per CFR iteration, 668s total
 - K=5 traversals is too few for 12,556 info states — needs K=50+ for proper convergence
 - Strategy extraction optimized: 31.9M game states → memoized to ~5s (was >10min)
 
@@ -93,8 +93,8 @@ uv run python experiments/exp004_deep_cfr_prototype.py --board 4x3
 
 ## Analysis
 
-**H1 CONFIRMED**: Deep CFR converges on 2x2 (expl 0.012 << 0.3 target) and
-3x2 (expl 0.055). 3x3 shows slow but clear convergence (0.86 at K=5, needs more traversals).
+**H1 CONFIRMED**: Deep CFR converges on 2x2 (expl 0.018 << 0.3 target) and
+3x2 (expl 0.045). 3x3 shows clear convergence trend (0.60 at K=5, needs more traversals).
 
 **H2 NOT TESTABLE with ES**: External Sampling infeasible for 4x3.
 Paper acknowledges "a different sampling scheme, such as outcome sampling,

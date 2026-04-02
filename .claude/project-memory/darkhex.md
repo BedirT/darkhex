@@ -34,9 +34,11 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 
 ## Recent Results (2026-04-02)
 - Deep CFR implemented: External Sampling + neural advantage/strategy nets (darkhex/algorithms/deep_cfr.py)
-- 2x2 CDH: exploitability 1.0 → **0.012** in 100 CFR iterations (91s, K=200)
-- 3x2 CDH: exploitability 1.0 → **0.055** in 50 CFR iterations (291s, K=200)
-- 3x3 CDH: exploitability 1.0 → **0.86** in 30 CFR iterations (618s, K=5 — needs more K)
+- 2x2 CDH: exploitability 1.0 → **0.018** in 100 CFR iterations (94s, K=200)
+- 3x2 CDH: exploitability 1.0 → **0.045** in 50 CFR iterations (324s, K=200)
+- 3x3 CDH: exploitability 1.0 → **0.60** in 30 CFR iterations (668s, K=5 — needs more K)
+- Fixed LCFR iteration counting (was per-player starting at 0, now 1-based per outer iter)
+- Fixed: seeded reservoir buffers, strategy renormalization, mandatory neural tests
 - 4x3 CDH: External Sampling infeasible (single traversal >30s, exponential in branching factor)
 - Optimized extract_strategy: game state memoization reduces 3x3 eval from >10min to 5.4s
 - Key finding: neural approximation converges well; bottleneck is ES traversal, not the NNs

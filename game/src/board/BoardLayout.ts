@@ -176,6 +176,24 @@ export class BoardLayout3D {
     }
   }
 
+  /**
+   * Render from an imperfect-information view array (strategy mode).
+   * Same format as applyBoard but with optional collision highlight.
+   */
+  applyView(view: Int8Array, collisionIndex: number | null = null): void {
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const idx = r * this.cols + c
+        const cell = view[idx]
+        const state: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
+        this.tiles[r][c].setState(state, false)
+        if (idx === collisionIndex) {
+          this.tiles[r][c].flashCollision()
+        }
+      }
+    }
+  }
+
   tickAnimations(dt: number): void {
     for (const tile of this.allTiles()) {
       tile.tickAnimation(dt)

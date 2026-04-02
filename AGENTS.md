@@ -49,6 +49,7 @@ All variants must be tested. CDH is the default for all experiments.
 - Test all: `make test`
 - Test Rust only: `make test-rust`
 - Test Python only: `make test-python`
+- Build WASM + run DSaGe web app: `make game`
 - Lint: `make lint`
 - Full check: `make check`
 

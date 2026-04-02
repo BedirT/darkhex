@@ -1,0 +1,22 @@
+{
+  "name": "dsage",
+  "version": "0.1.0",
+  "description": "DSaGe: Dark Hex Strategy Generator",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "darkhex-wasm": "file:./pkg",
+    "three": "^0.172.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.172.0",
+    "typescript": "^5.4",
+    "vite": "^5.2",
+    "vite-plugin-wasm": "^3.3.0",
+    "vite-plugin-top-level-await": "^1.4.4"
+  }
+}

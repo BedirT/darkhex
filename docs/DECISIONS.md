@@ -31,7 +31,7 @@ Each entry: **Date — Decision title**
 - **Choice**: NiceGUI for web-based visualization
 - **Alternatives**: GTK3 (old), tkinter/customtkinter (old), Gradio, Streamlit
 - **Rationale**: Web-based (shareable), Python-native, good for interactive game tree exploration. Replaces GTK3 and tkinter from thesis code.
-- **Status**: Active (not yet implemented)
+- **Status**: Superseded by 2026-03-31 decision
 
 ## 2026-03-27 — Testing strategy
 
@@ -75,6 +75,21 @@ Each entry: **Date — Decision title**
 
 - **Choice**: Implement in this order: (1) MCCFR outcome sampling, (2) exploitability/best response, (3) SIP/SIP+, (4) pONE, (5) Deep CFR or ReBeL, (6) NFSP
 - **Rationale**: MCCFR is the foundation — everything else builds on or evaluates against it. Exploitability is needed to verify MCCFR correctness. SIP/SIP+ are the thesis's novel contribution. pONE provides memory savings. Neural approaches are the paper's new contribution beyond the thesis.
+- **Status**: Active
+
+## 2026-03-31 — Visualization: Three.js/DSaGe replaces NiceGUI
+
+- **Choice**: Three.js + TypeScript + Vite for web visualization (DSaGe — Dark Hex Strategy Generator)
+- **Alternatives**: NiceGUI (previous choice), Phaser, Bevy, Godot
+- **Rationale**: NiceGUI is a Python GUI framework — insufficient for the 3D isometric board visualization, toon cel-shading, and interactive strategy exploration needed. Three.js gives full 3D control with screen-space post-processing outlines, MeshToonMaterial, and can integrate with Rust via WASM (`crates/wasm/`). The `game/` directory is a standalone Vite project.
+- **Status**: Active — board rendering implemented, strategy walker planned
+- **Supersedes**: 2026-03-27 NiceGUI decision
+
+## 2026-03-31 — Cargo workspace restructuring
+
+- **Choice**: Restructure monolithic `src/` into a Cargo workspace with three crates: `crates/core/` (game engine + solvers), `crates/python/` (PyO3 bindings), `crates/wasm/` (WebAssembly)
+- **Alternatives**: Keep monolithic `src/` with feature flags
+- **Rationale**: The WASM target for DSaGe needs different compilation flags than the PyO3 cdylib. A workspace cleanly separates the pure Rust core (no FFI dependencies) from the binding layers. Each crate has its own `Cargo.toml` and can be tested independently.
 - **Status**: Active
 
 ## 2026-03-28 — Win detection algorithm

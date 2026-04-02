@@ -38,6 +38,12 @@ darkhex/data/
 # Debug symbols
 *.dSYM/
 
+# Node
+node_modules/
+
+# WASM build output
+game/pkg/
+
 # Temp
 temp/
 

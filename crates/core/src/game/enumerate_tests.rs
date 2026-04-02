@@ -22,7 +22,6 @@ fn enumerate_3x2() {
 
 #[test]
 fn enumerate_3x3() {
-    // With memoization this should complete in seconds, not hours
     let stats = enumerate_game_tree(3, 3);
     assert_eq!(
         stats.total_info_states, 12556,

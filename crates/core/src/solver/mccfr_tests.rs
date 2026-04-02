@@ -38,7 +38,6 @@ fn outcome_runs() {
 
 #[test]
 fn outcome_discovers_all_2x2_canonical_info_states() {
-    // With canonical reduction, symmetric info states are merged (~half of 42).
     let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.6), Some(42)).unwrap();
     solver.solve(10000);
     let n = solver.num_info_states();
@@ -49,7 +48,7 @@ fn outcome_discovers_all_2x2_canonical_info_states() {
 #[test]
 fn outcome_default_sampling() {
     let solver = MCCFRSolver::new(2, 2, None, None, None).unwrap();
-    assert_eq!(solver.sampling, Sampling::Outcome);
+    assert_eq!(solver.sampling(), Sampling::Outcome);
 }
 
 #[test]
@@ -74,7 +73,6 @@ fn outcome_3x3_runs() {
 
 #[test]
 fn epsilon_validation_outcome() {
-    // Outcome Sampling validates epsilon
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(0.0), None).is_err());
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(-0.1), None).is_err());
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::Outcome), Some(1.1), None).is_err());
@@ -84,20 +82,16 @@ fn epsilon_validation_outcome() {
 
 #[test]
 fn epsilon_ignored_for_external() {
-    // External Sampling ignores epsilon — any value accepted
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), Some(0.0), None).is_ok());
     assert!(MCCFRSolver::new(2, 2, Some(Sampling::External), None, None).is_ok());
 }
 
 #[test]
 fn strategy_returns_cell_indices_not_sequential() {
-    // After the first move, some info states have legal_actions that don't
-    // start at 0 (e.g. [1,2,3]). The strategy must return actual cell indices
-    // so that exploitability can match them correctly.
     let mut solver = MCCFRSolver::new(2, 2, Some(Sampling::External), None, Some(42)).unwrap();
     solver.solve(5000);
     let strategy = solver.get_average_strategy();
-    let board_size = 4usize; // 2x2
+    let board_size = 4usize;
     for (key, probs) in &strategy {
         for &(action, _) in probs {
             assert!(
@@ -105,8 +99,6 @@ fn strategy_returns_cell_indices_not_sequential() {
                 "action {action} out of bounds for 2x2 board in key {key}"
             );
         }
-        // Verify all returned actions are valid cell positions for this info state.
-        // Parse the grid from the info state to determine which cells are empty.
         let grid: String = key.chars().skip(3).filter(|&c| c != '\n').collect();
         for &(action, _) in probs {
             assert_eq!(

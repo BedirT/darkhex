@@ -1,4 +1,4 @@
-.PHONY: build dev test test-rust test-python lint typecheck check clean fmt
+.PHONY: build dev test test-rust test-python lint typecheck check clean fmt wasm
 
 # Build the Rust extension (release mode)
 build:
@@ -15,9 +15,9 @@ install:
 # Run all tests (Rust + Python)
 test: test-rust test-python
 
-# Rust unit tests
+# Rust unit tests (core crate only — no PyO3 in test runner)
 test-rust:
-	cargo test
+	cargo test -p darkhex-core
 
 # Python integration tests (rebuilds Rust extension first)
 test-python: dev
@@ -37,12 +37,16 @@ typecheck:
 
 # Format Rust code
 fmt:
-	cargo fmt
+	cargo fmt --all
+
+# Build WASM package for DSaGe web app
+wasm:
+	cd crates/wasm && wasm-pack build --target web --out-dir ../../game/pkg
 
 # Full verification (lint + test)
 check:
 	./scripts/run-check.sh uv run ruff check .
-	./scripts/run-check.sh cargo test
+	./scripts/run-check.sh cargo test -p darkhex-core
 	./scripts/run-check.sh uv run pytest -x
 
 # Clean build artifacts

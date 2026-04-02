@@ -179,14 +179,6 @@ impl MCCFRSolver {
         self.info_states.len()
     }
 
-    pub fn sampling(&self) -> Sampling {
-        self.sampling
-    }
-
-    pub fn epsilon(&self) -> f32 {
-        self.epsilon
-    }
-
     /// Get the average (converged) strategy.
     ///
     /// Returns `{info_state_str: [(action_index, probability), ...]}`.

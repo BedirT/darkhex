@@ -4,18 +4,19 @@
 Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
-- Date: 2026-03-30
-- EXP-003 v3: MCCFR on 4x3 CDH — 1B iterations (thesis baseline)
-  - Exploitability: 0.999 (1M) → 0.985 (100M) → 0.989 (1B) — plateaus
-  - 175,825 canonical info states (95.5% of ~184k)
-  - Throughput: 113–127k iter/s, 1B solve ~2.2h
-  - Gap vs thesis (0.002) is metric difference (clairvoyant BR vs Ab-BR)
-- Fixed pONE: AND-OR belief-space search replaces per-config minimax
-  - Disabled pONE pruning in MCCFR (causes missing strategies in subtrees)
-  - PoneDb correct for analysis: 57,485 states on 4x3
-- Solver checkpointing: save/load/resume via bincode serialization (~16 MB)
-- SIP/SIP+ cherry-picked (Rust, thesis §4.4–4.5) — no effect on current strategy
-- Thesis discovery: 0.002 = 1B iters + SIP+ + Ab-BR (weaker metric than our BR)
+- Date: 2026-04-02
+- Implemented thesis-style Abstract Best Response (Ab-BR) in Rust + PyO3
+  - Three-phase algorithm: (1) collect opponent reach probs, (2) bucket by info set, (3) reach-weighted value DFS
+  - Memoized on info_state(P0)+info_state(P1) for Phase 3, state_key for Phase 1 BR nodes
+  - 4x3 @ 1B iters: **Ab-BR=0.722** vs clairvoyant=0.989 (71 min, ~10 GB peak)
+  - 2x2: Ab-BR=0.231 vs clairvoyant=0.001
+  - Thesis reported 0.009 (SIP) / 0.002 (SIP+) — our raw MCCFR gives 0.722, needs SIP+ post-processing
+- Key discoveries:
+  - Clairvoyant BR (our original) gives the BR player full board visibility — valid upper bound but not thesis metric
+  - Ab-BR is a heuristic with reach weighting from thesis §4 — NOT a formal lower bound
+  - True BR (info-set-consistent) requires history enumeration — infeasible for 4x3
+  - The thesis 0.002 was SIP+ post-processed, not raw MCCFR output
+- Fixed pre-existing duplicate methods in mccfr.rs, lint errors in exp003
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -42,17 +43,22 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] pONE MCCFR pruning disabled (causes missing strategies in subtrees)
 - [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
 - [x] Solver checkpointing: save/load/resume via bincode (~16 MB for 4x3)
+- [x] Abstract Best Response (Ab-BR) — Rust + PyO3, thesis §4 three-phase algorithm
+- [x] Ab-BR verified on 4x3 @ 1B: 0.722 (vs clairvoyant 0.989, thesis 0.002 with SIP+)
+- [x] EXP-004 prepared: Ab-BR vs clairvoyant comparison, 4x3 CDH to 10B
 
 ## Open PR
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
-- [ ] Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
-- [ ] Run 10B iterations (resume from 1B checkpoint)
+- [ ] Apply SIP/SIP+ to 1B strategy, then compute Ab-BR (thesis pipeline: MCCFR → SIP+ → Ab-BR)
+- [ ] Run EXP-004: 10B iterations with dual Ab-BR + clairvoyant metrics
+- [ ] Optimize Ab-BR Phase 1 — opponent node memoization or DAG-based reach propagation
 - [ ] Deep CFR or ReBeL prototype (neural approach may converge faster on 4x3)
-- [ ] PR: merge experiment/exp003-4x3-mccfr → re-dev
+- [ ] PR: merge Ab-BR + EXP-004 → re-dev
 
 ## Decisions Made
+- Ab-BR is a heuristic, NOT a guaranteed bound on clairvoyant BR — can be higher or lower (2026-04-01)
 - Clairvoyant BR (per-state optimal) for exploitability — upper bound, tight for converged strategies (2026-03-29)
 - CDH default, all 4 variants supported (2026-03-28)
 - External → Outcome Sampling (External too slow for 3x3) (2026-03-28)

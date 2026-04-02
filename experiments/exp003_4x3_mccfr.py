@@ -8,7 +8,8 @@ Usage:
     uv run python experiments/exp003_4x3_mccfr.py
 
     # Resume from checkpoint
-    uv run python experiments/exp003_4x3_mccfr.py --resume results/exp003_4x3_mccfr/solver_100M.bin
+    uv run python experiments/exp003_4x3_mccfr.py \
+        --resume results/exp003_4x3_mccfr/solver_100M.bin
 
     # Custom iteration target
     uv run python experiments/exp003_4x3_mccfr.py --max-iters 10000000000
@@ -310,12 +311,13 @@ def main():
 
     # Summary
     final = all_records[-1] if all_records else {}
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"Iterations: {solver.iterations():,}")
     print(f"Info states: {solver.num_info_states():,}")
     print(f"Exploitability: {final.get('exploitability', 'N/A')}")
     print(f"Total time: {total_time:.0f}s")
-    print(f"Latest checkpoint: {RESULTS_DIR}/solver_{_fmt_iters(solver.iterations())}.bin")
+    ckpt = f"solver_{_fmt_iters(solver.iterations())}.bin"
+    print(f"Latest checkpoint: {RESULTS_DIR}/{ckpt}")
     print(f"\nResults: {RESULTS_DIR}/")
 
 

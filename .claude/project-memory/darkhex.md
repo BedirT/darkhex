@@ -4,8 +4,8 @@ repo_root: /Users/bedirt/Documents/Github/darkhex
 vault_root: /Users/bedirt/Library/Mobile Documents/iCloud~md~obsidian/Documents/Research/darkhex
 hub_note: Research/darkhex/00-Hub.md
 language: en
-last_sync_at: 2026-03-29T22:00:00Z
-last_synced_head: 1e03d9c
+last_sync_at: 2026-04-01T23:00:00Z
+last_synced_head: 17a3be4
 status: active
 auto_sync: true
 ---
@@ -21,21 +21,20 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - Isomorphic reduction will halve effective state space and improve convergence
 
 ## Active Tasks
-- Run MCCFR on 4x3 (~184,000 canonical info states — thesis headline board)
-- SIP/SIP+ policy simplification (thesis novel contribution)
+- EXP-004: Run Ab-BR vs clairvoyant comparison on 4x3 CDH to 10B iterations
+- Analyze Ab-BR convergence — compare against thesis 0.002 at 1B
+- Deep CFR or ReBeL prototype (neural approach)
 
 ## Completed Experiments
 - EXP-001: MCCFR convergence verification (done)
 - EXP-002: Info state enumeration — all thesis values confirmed (done)
-- EXP-003: Exploitability convergence on 2x2 (verified: 0.55 → 0.02)
+- EXP-003: 4x3 MCCFR convergence — 1B iters, expl=0.989 (clairvoyant BR) (done)
 
 ## Recent Results
-- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings (2x2: 42→22, 3x2: 410→~205)
-- pONE belief-space precomputation: probability-1 win state pruning (opt-in, CDH only)
-- Fixed strategy-action index bug in get_average_strategy() (was returning sequential indices)
-- 117 tests passing (54 Rust + 63 Python)
-- Exploitability / best response: clairvoyant upper bound, memoized DFS
-- 2x2 MCCFR convergence verified: exploitability 0.55 → 0.02 at 50k iters
+- Ab-BR implemented in Rust + PyO3 (2026-04-01)
+  - Key finding: Ab-BR is NOT a bound on clairvoyant BR; different metric entirely
+  - On trained 2x2: Ab-BR=0.082 vs clairvoyant=0.001 (Ab-BR can be higher near equilibrium)
+- EXP-003: 4x3 MCCFR @ 1B iters → expl 0.989 (clairvoyant BR), 175k canonical info states
 - Ground truth: 2x2=42 (22 canonical), 3x3=12,556, 4x3=367,919 (~184k canonical)
 
 ## Recent Sync Status

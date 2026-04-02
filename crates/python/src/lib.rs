@@ -457,6 +457,24 @@ fn best_response_values(
 }
 
 #[pyfunction]
+fn ab_exploitability(
+    rows: usize,
+    cols: usize,
+    strategy: HashMap<String, Vec<(usize, f32)>>,
+) -> f64 {
+    core_exploitability::ab_exploitability(rows, cols, strategy)
+}
+
+#[pyfunction]
+fn ab_best_response_values(
+    rows: usize,
+    cols: usize,
+    strategy: HashMap<String, Vec<(usize, f32)>>,
+) -> (f64, f64, f64) {
+    core_exploitability::ab_best_response_values(rows, cols, strategy)
+}
+
+#[pyfunction]
 #[pyo3(signature = (strategy, epsilon, action_cap))]
 fn simplify_policy(
     strategy: HashMap<String, Vec<(usize, f32)>>,
@@ -496,6 +514,8 @@ fn _engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(enumerate_game_tree, m)?)?;
     m.add_function(wrap_pyfunction!(exploitability, m)?)?;
     m.add_function(wrap_pyfunction!(best_response_values, m)?)?;
+    m.add_function(wrap_pyfunction!(ab_exploitability, m)?)?;
+    m.add_function(wrap_pyfunction!(ab_best_response_values, m)?)?;
     m.add_function(wrap_pyfunction!(simplify_policy, m)?)?;
     m.add_function(wrap_pyfunction!(simplify_policy_plus, m)?)?;
     Ok(())

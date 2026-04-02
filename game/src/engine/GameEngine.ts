@@ -8,6 +8,9 @@ export interface MoveResult {
   placed: boolean   // true = stone placed, false = collision (CDH retry)
 }
 
+// Cache WASM init so it only runs once regardless of how many engines are created.
+let _initPromise: Promise<void> | null = null
+
 /** Async-init wrapper around the WASM GameState. */
 export class GameEngine {
   private state: GameState
@@ -21,7 +24,8 @@ export class GameEngine {
   }
 
   static async create(rows: number, cols: number): Promise<GameEngine> {
-    await init()
+    if (!_initPromise) _initPromise = init().then(() => {})
+    await _initPromise
     const state = new GameState(rows, cols)
     return new GameEngine(state, rows, cols)
   }

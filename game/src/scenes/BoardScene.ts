@@ -31,6 +31,7 @@ export class BoardScene {
   private lastMoveIndex: number | null = null
 
   private clock = new THREE.Clock()
+  private _rafId = 0
 
   private statusEl!: HTMLDivElement
   private infoEl!: HTMLDivElement
@@ -108,11 +109,21 @@ export class BoardScene {
   // ── Render loop ─────────────────────────────────────────────────────────
 
   private _animate = (): void => {
-    requestAnimationFrame(this._animate)
+    this._rafId = requestAnimationFrame(this._animate)
     const dt = this.clock.getDelta()
     this.controls.update()
     if (this.board) this.board.tickAnimations(dt)
     this.outlineRender.render()
+  }
+
+  dispose(): void {
+    cancelAnimationFrame(this._rafId)
+    this.renderer.domElement.removeEventListener('pointermove', this._onPointerMove)
+    this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
+    window.removeEventListener('resize', this._onResize)
+    window.removeEventListener('keydown', this._onKeyDown)
+    this.controls.dispose()
+    this.renderer.dispose()
   }
 
   // ── Lights ──────────────────────────────────────────────────────────────

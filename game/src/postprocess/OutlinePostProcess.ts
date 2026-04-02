@@ -29,7 +29,8 @@ const normalMat = new THREE.MeshNormalMaterial()
 // Each mesh gets a unique flat color so the edge detector can distinguish
 // adjacent objects regardless of gap size or depth.
 
-const _idMaterials = new Map<THREE.Object3D, THREE.MeshBasicMaterial>()
+// WeakMap lets GC reclaim materials when meshes are removed (no leaks).
+const _idMaterials = new WeakMap<THREE.Object3D, THREE.MeshBasicMaterial>()
 let _nextId = 1
 
 function getIdMaterial(obj: THREE.Object3D): THREE.MeshBasicMaterial {
@@ -245,11 +246,9 @@ export function createOutlineComposer(
   let _meshList: THREE.Mesh[] = []
   let _savedMats: (THREE.Material | THREE.Material[])[] = []
   let _meshListDirty = true
-  // Mark dirty when scene graph changes (meshes added/removed).
-  const _origAdd = scene.add.bind(scene)
-  const _origRemove = scene.remove.bind(scene)
-  scene.add = (...args: THREE.Object3D[]) => { _meshListDirty = true; return _origAdd(...args) }
-  scene.remove = (...args: THREE.Object3D[]) => { _meshListDirty = true; return _origRemove(...args) }
+
+  /** Call this after adding/removing meshes from the scene. */
+  function invalidateMeshList(): void { _meshListDirty = true }
 
   function rebuildMeshList(): void {
     _meshList = []
@@ -315,5 +314,5 @@ export function createOutlineComposer(
     eu['resolution'].value.set(npw, nph)
   }
 
-  return { composer, resize, render, edgeUniforms: eu }
+  return { composer, resize, render, invalidateMeshList, edgeUniforms: eu }
 }

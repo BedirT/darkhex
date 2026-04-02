@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { HexTile3D, type TileState } from './HexTile'
 import { gridToWorld, boardCenter, HEX, PALETTE } from './IsometricHex'
+import { toonMat } from './ToonMaterials'
 
 // ── Edge piece neighbor offsets per edge index ────────────────────────────────
 // Edge i of a flat-top hex faces the neighbor at EDGE_NEIGHBOR[i].
@@ -104,23 +105,6 @@ function buildChevronShape(
   }
   shape.closePath()
   return shape
-}
-
-// ── Shared gradient map for toon shading ──────────────────────────────────────
-let _gradientMap: THREE.DataTexture | null = null
-function gradientMap(): THREE.DataTexture {
-  if (!_gradientMap) {
-    const colors = new Uint8Array([100, 200, 255])
-    _gradientMap = new THREE.DataTexture(colors, 3, 1, THREE.RedFormat)
-    _gradientMap.needsUpdate = true
-    _gradientMap.minFilter = THREE.NearestFilter
-    _gradientMap.magFilter = THREE.NearestFilter
-  }
-  return _gradientMap
-}
-
-function toonMat(color: number): THREE.MeshToonMaterial {
-  return new THREE.MeshToonMaterial({ color, gradientMap: gradientMap() })
 }
 
 /**

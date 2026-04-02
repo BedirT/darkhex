@@ -1,25 +1,8 @@
 import * as THREE from 'three'
 import { HEX, hexShape, PALETTE } from './IsometricHex'
+import { toonMat } from './ToonMaterials'
 
 export type TileState = 'empty' | 'black' | 'white'
-
-// ── Toon gradient map ───────────────────────────────────────────────────────
-
-let _gradientMap: THREE.DataTexture | null = null
-function gradientMap(): THREE.DataTexture {
-  if (!_gradientMap) {
-    const colors = new Uint8Array([100, 200, 255])
-    _gradientMap = new THREE.DataTexture(colors, 3, 1, THREE.RedFormat)
-    _gradientMap.needsUpdate = true
-    _gradientMap.minFilter = THREE.NearestFilter
-    _gradientMap.magFilter = THREE.NearestFilter
-  }
-  return _gradientMap
-}
-
-function toonMat(color: number): THREE.MeshToonMaterial {
-  return new THREE.MeshToonMaterial({ color, gradientMap: gradientMap() })
-}
 
 // ── Shared geometries ───────────────────────────────────────────────────────
 

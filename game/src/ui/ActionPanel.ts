@@ -1,3 +1,16 @@
+/** Format 1/n so that n copies sum to exactly 1.00 within display tolerance.
+ *  Uses enough decimal places (up to 6) to avoid rounding rejection. */
+function eqProb(n: number): string {
+  const raw = 1 / n
+  // Try increasing precision until n * rounded == 1 within tolerance
+  for (let d = 2; d <= 6; d++) {
+    const s = raw.toFixed(d)
+    const sum = parseFloat(s) * n
+    if (Math.abs(sum - 1) <= 0.01) return s
+  }
+  return raw.toFixed(6)
+}
+
 /**
  * Thin bottom toolbar for strategy mode.
  * Shows selected actions with editable probabilities + control buttons.
@@ -107,7 +120,7 @@ export class ActionPanel {
 
       const input = document.createElement('input')
       input.type = 'text'
-      input.value = (1 / selected.size).toFixed(2)
+      input.value = eqProb(selected.size)
       input.style.cssText = `
         width: 40px; background: #1a2a1a; color: #e0e0e0; border: 1px solid #4a6a4a;
         padding: 2px 4px; font-family: inherit; font-size: 12px; border-radius: 3px;
@@ -127,7 +140,7 @@ export class ActionPanel {
   setAllEqual(): void {
     const n = this.probInputs.size
     if (n === 0) return
-    const eq = (1 / n).toFixed(2)
+    const eq = eqProb(n)
     for (const input of this.probInputs.values()) {
       input.value = eq
     }

@@ -96,9 +96,8 @@ export class StrategyGenerator {
     const next = this.actionStack.pop()!
     this.currentInfoState = next.state
     this.lastCollisionIndex = next.collisionCell
-    this.history.push(this.snapshot())
 
-    // Handle random-action chaining
+    // Handle random-action chaining (must happen before snapshot so undo restores correct state)
     if (isRandom && this.targetStackState === null) {
       if (addition > 0 && this.actionStack.length >= addition) {
         this.targetStackState =
@@ -110,9 +109,14 @@ export class StrategyGenerator {
     if (this.targetStackState !== null) {
       if (this.targetStackState === this.currentInfoState) {
         this.targetStackState = null
-      } else {
-        return this.iterateBoard('r')
       }
+    }
+
+    this.history.push(this.snapshot())
+
+    // Auto-continue random chain after saving snapshot
+    if (this.targetStackState !== null) {
+      return this.iterateBoard('r')
     }
 
     return false

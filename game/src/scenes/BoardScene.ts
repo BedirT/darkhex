@@ -323,9 +323,12 @@ export class BoardScene {
   }
 
   private _exitStrategyMode(): void {
+    this._clearSelection()
+    // Clear prob overlay labels directly (in case _clearSelection skipped due to empty stratGen)
+    for (const el of this.probLabels.values()) el.remove()
+    this.probLabels.clear()
     this.mode = 'play'
     this.stratGen = null
-    this._clearSelection()
     this.actionPanel.hide()
     this.infoPanel.hide()
 

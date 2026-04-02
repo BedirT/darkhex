@@ -251,7 +251,11 @@ class DeepCFR:
         if state.is_terminal():
             return state.returns()[traverser]
 
-        player_enum = Player.Black if state.current_player() == Player.Black else Player.White
+        player_enum = (
+            Player.Black
+            if state.current_player() == Player.Black
+            else Player.White
+        )
         player = _player_index(player_enum)
         actions = state.legal_actions()
 
@@ -424,18 +428,34 @@ class DeepCFR:
         """
         result: dict[str, list[tuple[int, float]]] = {}
         state = DarkHexState(self.cfg.rows, self.cfg.cols)
-        self._extract_recursive(state, result)
+        self._extract_recursive(state, result, set())
         return result
 
     def _extract_recursive(
         self,
         state: DarkHexState,
         result: dict[str, list[tuple[int, float]]],
+        visited_game_states: set[str],
     ) -> None:
         if state.is_terminal():
             return
 
-        player_enum = Player.Black if state.current_player() == Player.Black else Player.White
+        # Memoize by observable game state (both player info states +
+        # current player) to avoid exponential re-traversal.
+        # 3x3 has 31.9M game tree nodes but far fewer distinct
+        # observable states — this is the critical optimization.
+        is_b = state.info_state_string(Player.Black)
+        is_w = state.info_state_string(Player.White)
+        game_key = is_b + "|" + is_w
+        if game_key in visited_game_states:
+            return
+        visited_game_states.add(game_key)
+
+        player_enum = (
+            Player.Black
+            if state.current_player() == Player.Black
+            else Player.White
+        )
         canonical_str, is_canonical = state.canonical_info_state(player_enum)
 
         if canonical_str not in result:
@@ -457,7 +477,7 @@ class DeepCFR:
         for action in state.legal_actions():
             child = state.copy()
             child.apply_action(action)
-            self._extract_recursive(child, result)
+            self._extract_recursive(child, result, visited_game_states)
 
     def exploitability(self) -> float:
         """Compute exploitability of the current strategy net."""

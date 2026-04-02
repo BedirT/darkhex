@@ -269,7 +269,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    default_iters = {"2x2": 50, "3x2": 50, "4x3": 200}
+    default_iters = {"2x2": 100, "3x2": 50, "3x3": 30, "4x3": 200}
     num_iters = args.iters or default_iters[args.board]
 
     # Sanity check on fresh runs

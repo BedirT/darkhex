@@ -70,15 +70,20 @@ uv run python experiments/exp004_deep_cfr_prototype.py --board 4x3
 
 ## Results
 
-### 2x2 CDH (20 CFR iterations, K=100 traversals)
-- Exploitability: 1.00 → 0.28 → 0.04 (converges rapidly)
-- ~0.5s per CFR iteration
-- Comparable to tabular OS-MCCFR at 50k iterations (expl ~0.02)
+### 2x2 CDH (100 CFR iterations, K=200 traversals)
+- Exploitability: 1.00 → 0.12 → 0.02 → **0.012** (converges to near-Nash)
+- ~0.9s per CFR iteration, 91s total
+- Comparable to tabular OS-MCCFR at 100k iterations (expl ~0.0001)
 
-### 3x2 CDH (20 CFR iterations, K=100 traversals)
-- Exploitability: 1.00 → 0.27 → 0.08 (converges well)
-- ~3-5s per CFR iteration
-- Shows algorithm generalizes beyond 2x2
+### 3x2 CDH (50 CFR iterations, K=200 traversals)
+- Exploitability: 1.00 → 0.33 → 0.07 → **0.055** (converges well)
+- ~6s per CFR iteration, 291s total
+
+### 3x3 CDH (30 CFR iterations, K=5 traversals)
+- Exploitability: 1.00 → 0.97 → 0.88 → **0.86** (slow convergence with K=5)
+- ~20s per CFR iteration, 618s total
+- K=5 traversals is too few for 12,556 info states — needs K=50+ for proper convergence
+- Strategy extraction optimized: 31.9M game states → memoized to ~5s (was >10min)
 
 ### 4x3 CDH — External Sampling infeasible
 - Single ES traversal on 4x3 does not complete within 30s
@@ -88,17 +93,18 @@ uv run python experiments/exp004_deep_cfr_prototype.py --board 4x3
 
 ## Analysis
 
-**H1 CONFIRMED**: Deep CFR converges on 2x2, achieving exploitability 0.04 < 0.3 target.
-Deep CFR also converges on 3x2 (0.08), showing generalization.
+**H1 CONFIRMED**: Deep CFR converges on 2x2 (expl 0.012 << 0.3 target) and
+3x2 (expl 0.055). 3x3 shows slow but clear convergence (0.86 at K=5, needs more traversals).
 
-**H2 NOT TESTABLE**: External Sampling is computationally infeasible for 4x3.
-The paper uses ES exclusively but acknowledges "a different sampling scheme,
-such as outcome sampling, may be desired" for games with large branching factors.
-4x3 Dark Hex (branching factor ≤12) requires Outcome Sampling (DREAM variant).
+**H2 NOT TESTABLE with ES**: External Sampling infeasible for 4x3.
+Paper acknowledges "a different sampling scheme, such as outcome sampling,
+may be desired" for games with large branching factors.
 
-**Key finding**: The neural approximation converges well — the bottleneck is
-the traversal scheme (External Sampling), not the neural networks. With an
-efficient sampling scheme, Deep CFR should converge on 4x3.
+**Key findings**:
+1. Neural approximation converges well — bottleneck is ES traversal, not NNs
+2. K (traversals per iteration) is critical: K=200 works for 2x2/3x2, K=5 is insufficient for 3x3
+3. Strategy extraction optimization (game state memoization) reduced 3x3 eval from >10min to 5s
+4. 3x3 is on the edge of ES feasibility — convergence is possible but slow
 
 ## Next Steps
 

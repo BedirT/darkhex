@@ -22,8 +22,9 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - Isomorphic reduction halves effective state space for both tabular and neural approaches
 
 ## Active Tasks
-- Run DREAM EXP-005 on 4x3 boards (the main feasibility test)
-- Tune DREAM hyperparameters for 3x3/4x3 convergence (K, reinit_every, baseline)
+- Run ESCHER on 4x3 boards (the main feasibility test, running now)
+- Write ESCHER tests (test_escher.py)
+- Create ESCHER experiment harness (exp006_escher.py)
 - Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
 - Run 10B tabular OS-MCCFR iterations (resume from 1B checkpoint)
 
@@ -32,20 +33,19 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - EXP-002: Info state enumeration — all thesis values confirmed (done)
 - EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 clairvoyant BR (done)
 - EXP-004 (repo): Deep CFR prototype — 2x2 (expl 0.018), 3x2 (expl 0.045), 4x3 ES infeasible (done)
-- EXP-005 (pending run): DREAM implemented — 2x2 (expl 0.006 @ 50 iters), ready for 4x3
+- EXP-005: DREAM — 2x2 (expl 0.008), 3x2 (0.197), 3x3 (0.953 — OS variance too high), 4x3 running
+- EXP-006 (pending): ESCHER — 2x2 (expl 0.005), 3x3 (**0.020** — breakthrough), 4x3 running
 
 ## Recent Results (2026-04-02)
-- DREAM implemented: Outcome Sampling + neural advantage/strategy nets + optional Q-baseline (darkhex/algorithms/dream.py)
-- DREAM 2x2 CDH: exploitability 1.0 → **0.006** in 50 CFR iterations (~3s)
-- DREAM 3x2 CDH: exploitability 1.0 → **0.197** in 50 iterations (18s, K=200) — higher variance than ES, expected
-- DREAM uses OS importance-weighted regret updates, strategy weights as per-sample loss multiplier
-- Q-baseline uses canonical joint info states (both players' rotated views)
-- Code reviewed by internal agent + Codex; three correctness bugs caught and fixed:
-  1. Strategy targets must be raw sigma (unit-sum) for Softmax compatibility, weight applied as loss multiplier
-  2. Q-baseline input must use canonical (rotated) info states to match canonical action indices
-  3. Experiment outputs separated by board/condition to prevent overwrites
+- ESCHER implemented: IS-free neural CFR with 3-network architecture (darkhex/algorithms/escher.py)
+- ESCHER 3x3 CDH: exploitability 1.0 → **0.020** in 50 iters (293s) — breakthrough result
+- ESCHER 2x2 CDH: exploitability 1.0 → **0.005** in 30 iters (23s)
+- ESCHER eliminates IS weights entirely; regret variance ~1e-1 vs DREAM's ~1e8 on DH4
+- DREAM implemented but OS variance too high for 3x3+: 3x3 expl stuck at 0.953
+- DREAM 2x2 CDH: expl 0.008 (OK), 3x2: 0.197, 3x3: 0.953 (bad)
 - Deep CFR (ES): 2x2 (expl 0.018), 3x2 (expl 0.045), 4x3 infeasible
-- 122 tests passing (54 Rust + 68 Python including 22 Deep CFR + 22 DREAM)
+- Code reviewed by internal agent + Codex; multiple correctness bugs caught and fixed
+- ESCHER 4x3 experiment running — the decisive test
 
 ## Previous Results (2026-03-30)
 - Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings (2x2: 42→22, 3x2: 410→~205)

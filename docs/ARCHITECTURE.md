@@ -64,7 +64,8 @@ darkhex/
 ├── darkhex/                 # Python package
 │   ├── algorithms/          # CFR variants (Python-side)
 │   │   ├── deep_cfr.py      # Deep CFR (External Sampling + NNs)
-│   │   └── dream.py         # DREAM (Outcome Sampling + NNs + optional Q-baseline)
+│   │   ├── dream.py         # DREAM (Outcome Sampling + NNs + optional Q-baseline)
+│   │   └── escher.py        # ESCHER (IS-free: value net + regret net + avg policy)
 │   └── utils/               # Shared utilities
 ├── tests/                   # Python integration tests
 ├── docs/                    # Documentation
@@ -206,6 +207,7 @@ This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 | SIP+ (fractionized) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.5 |
 | Deep CFR | **Implemented** | `darkhex/algorithms/deep_cfr.py` | Brown et al. ICML 2019 |
 | DREAM (Outcome Sampling Deep CFR) | **Implemented** | `darkhex/algorithms/dream.py` | Steinberger et al. 2020 |
+| ESCHER (IS-free neural CFR) | **Implemented** | `darkhex/algorithms/escher.py` | McAleer et al. ICLR 2023 |
 | NFSP | Planned | — | Heinrich & Silver 2016 |
 
 ## Experiment Pipeline

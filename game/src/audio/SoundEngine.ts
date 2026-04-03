@@ -376,3 +376,42 @@ export function playCollision(): void {
   osc.start(now)
   osc.stop(now + 0.08)
 }
+
+// ── Celebration chime (strategy complete) ──────────────────────────────────
+
+/**
+ * Warm, ascending three-note chime — "you did it!"
+ * Major triad arpeggio with gentle sine tones.
+ */
+export function playChime(): void {
+  const c = ctx()
+  if (c.state !== 'running') return
+  const now = c.currentTime
+
+  const master = c.createGain()
+  master.gain.setValueAtTime(0.12, now)
+  master.connect(c.destination)
+
+  // Three ascending notes: C5 → E5 → G5 (major triad)
+  const notes = [523.25, 659.25, 783.99]
+  const noteDelay = 0.12  // stagger between notes
+  const noteDur = 0.4
+
+  for (let i = 0; i < notes.length; i++) {
+    const t = now + i * noteDelay
+
+    const osc = c.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(notes[i], t)
+
+    const gain = c.createGain()
+    gain.gain.setValueAtTime(0, t)
+    gain.gain.linearRampToValueAtTime(0.8, t + 0.03)       // quick attack
+    gain.gain.exponentialRampToValueAtTime(0.001, t + noteDur)  // gentle decay
+
+    osc.connect(gain)
+    gain.connect(master)
+    osc.start(t)
+    osc.stop(t + noteDur)
+  }
+}

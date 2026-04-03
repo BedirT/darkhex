@@ -78,7 +78,7 @@ export class HexTile3D {
   private _dropLanded = false        // true once landing triggers
   private _flipTimer = -1            // > 0 while tile flip is active
   private _flipPivot: THREE.Group | null = null  // pivot for flip rotation
-  private _vanishTimer = -1          // > 0 while vanish animation is active
+  private _vanishTimer = -99         // -99 = inactive; negative = waiting for delay; positive = animating
   private _vanishDur = 0.3           // per-stone vanish duration
 
   /** Called when the stone first hits the board (at the bounce point). */
@@ -113,6 +113,7 @@ export class HexTile3D {
     this._isLast = isLast
     this._hovered = false
     this._selected = false
+    this._vanishTimer = -99  // cancel any active vanish
     // Reset tile to base height (e.g. if it was hovered/selected when stone placed)
     this.group.userData['targetY'] = this._baseY
     this._updateColors()

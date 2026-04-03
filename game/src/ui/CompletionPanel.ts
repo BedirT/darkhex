@@ -26,6 +26,8 @@ export type CompletionAction = 'download' | 'new' | 'dismiss'
 export class CompletionPanel {
   private overlay: HTMLDivElement
   private statsEl: HTMLDivElement
+  private confirmEl: HTMLDivElement
+  private downloaded = false
   private resolve: ((action: CompletionAction) => void) | null = null
 
   constructor(parent: HTMLElement) {
@@ -90,7 +92,10 @@ export class CompletionPanel {
       downloadBtn.style.transform = ''
       downloadBtn.style.boxShadow = '0 3px 0 #7a4040, 0 4px 12px rgba(100, 60, 60, 0.2)'
     })
-    downloadBtn.addEventListener('click', () => this._resolve('download'))
+    downloadBtn.addEventListener('click', () => {
+      this.downloaded = true
+      this._resolve('download')
+    })
     btnRow.appendChild(downloadBtn)
 
     const newBtn = this._makeBtn('New Strategy', CREAM, TEXT, `
@@ -98,16 +103,60 @@ export class CompletionPanel {
     `)
     newBtn.addEventListener('mouseover', () => { newBtn.style.background = MAUVE_LIGHT })
     newBtn.addEventListener('mouseout', () => { newBtn.style.background = CREAM })
-    newBtn.addEventListener('click', () => this._resolve('new'))
+    newBtn.addEventListener('click', () => {
+      if (!this.downloaded) {
+        this._showConfirm()
+      } else {
+        this._resolve('new')
+      }
+    })
     btnRow.appendChild(newBtn)
 
     panel.appendChild(btnRow)
+
+    // ── Confirmation sub-panel (hidden by default) ──────────────────
+    this.confirmEl = document.createElement('div')
+    this.confirmEl.style.cssText = `
+      display: none; margin-top: 20px; padding: 16px 20px;
+      background: #fff0e0; border: 2px solid #ffd5a0; border-radius: 10px;
+      text-align: center;
+    `
+    this.confirmEl.innerHTML = `
+      <p style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: #c75000;">
+        You haven't downloaded the strategy yet.
+      </p>
+      <p style="margin: 0 0 16px; font-size: 14px; color: ${TEXT_MUTED};">
+        Starting a new strategy will discard your current work.
+      </p>
+    `
+
+    const confirmBtnRow = document.createElement('div')
+    confirmBtnRow.style.cssText = 'display: flex; gap: 10px; justify-content: center;'
+
+    const discardBtn = this._makeBtn('Discard & Start New', '#c75000', '#fff', `
+      border: none; font-weight: 800;
+    `)
+    discardBtn.addEventListener('mouseover', () => { discardBtn.style.background = '#a84400' })
+    discardBtn.addEventListener('mouseout', () => { discardBtn.style.background = '#c75000' })
+    discardBtn.addEventListener('click', () => this._resolve('new'))
+    confirmBtnRow.appendChild(discardBtn)
+
+    const goBackBtn = this._makeBtn('Go Back', CREAM, TEXT, `border: 2px solid ${MAUVE_LIGHT};`)
+    goBackBtn.addEventListener('mouseover', () => { goBackBtn.style.background = MAUVE_LIGHT })
+    goBackBtn.addEventListener('mouseout', () => { goBackBtn.style.background = CREAM })
+    goBackBtn.addEventListener('click', () => { this.confirmEl.style.display = 'none' })
+    confirmBtnRow.appendChild(goBackBtn)
+
+    this.confirmEl.appendChild(confirmBtnRow)
+    panel.appendChild(this.confirmEl)
 
     this.overlay.appendChild(panel)
     parent.appendChild(this.overlay)
   }
 
   show(stats: CompletionStats): Promise<CompletionAction> {
+    this.downloaded = false
+    this.confirmEl.style.display = 'none'
     // Update stats display
     const playerName = stats.player === 0 ? 'Black' : 'White'
     const playerColor = stats.player === 0 ? '#506080' : MAUVE_DARK
@@ -133,6 +182,10 @@ export class CompletionPanel {
   hide(): void {
     this.overlay.style.display = 'none'
     this.resolve = null
+  }
+
+  private _showConfirm(): void {
+    this.confirmEl.style.display = 'block'
   }
 
   private _resolve(action: CompletionAction): void {

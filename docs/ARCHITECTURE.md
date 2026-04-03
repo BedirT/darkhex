@@ -26,7 +26,8 @@ darkhex/
 │   │       │   ├── types.rs # Player, Cell, CollisionRule enums
 │   │       │   ├── board.rs # HexBoard + union-find win detection
 │   │       │   ├── state.rs # DarkHexState (4 Dark Hex variants)
-│   │       │   └── enumerate.rs # Memoized info state enumeration
+│   │       │   ├── enumerate.rs # Memoized info state enumeration
+│   │       │   └── info_state_ops.rs # Info state string operations (parse, successor, terminal)
 │   │       └── solver/      # Algorithm layer (depends on game/)
 │   │           ├── mccfr.rs # External + Outcome Sampling MCCFR
 │   │           ├── exploitability.rs # Best response + exploitability
@@ -44,7 +45,16 @@ darkhex/
 │   │   │   ├── HexTile.ts      # Individual tile mesh + state
 │   │   │   └── BoardLayout.ts  # Grid layout + edge pieces
 │   │   ├── engine/          # Game logic interface
-│   │   │   └── GameEngine.ts
+│   │   │   ├── GameEngine.ts
+│   │   │   └── InfoStateOps.ts  # WASM wrapper for info state operations
+│   │   ├── strategy/        # Strategy generator (PolGen port)
+│   │   │   ├── types.ts         # Policy, StrategyConfig, StrategySnapshot
+│   │   │   ├── HistoryBuffer.ts # Deep-clone snapshot undo/redo
+│   │   │   └── StrategyGenerator.ts # Core state machine (action stack, collision branching)
+│   │   ├── ui/              # Strategy mode UI panels
+│   │   │   ├── SetupPanel.ts    # Modal for board size, player, recall config
+│   │   │   ├── ActionPanel.ts   # Bottom toolbar (prob editing, sum validation, confirm/undo)
+│   │   │   └── InfoPanel.ts     # Top panel (progress bar, info state display)
 │   │   ├── postprocess/     # Screen-space effects
 │   │   │   └── OutlinePostProcess.ts  # Cel-shading outlines
 │   │   └── scenes/          # Scene composition
@@ -133,6 +143,21 @@ A player sees a stone when:
 
 **Terminal conditions**: A player connects their edges (detected by union-find after each successful placement). Hex guarantees a winner on any full board.
 
+### InfoStateOps (`info_state_ops.rs`)
+
+Stateless operations on info state strings — parsing, legal action extraction, collision detection, successor computation, and terminal detection. This module enables working with info states without constructing a full `DarkHexState`, which is critical for the strategy generator where the game tree is walked from the perspective of a single player's information sets.
+
+**Key operations**:
+- `parse_info_state(s)` — Extract player, board view, and action history from an info state string
+- `legal_actions(s)` — Return indices of empty cells (`.`) in the board view
+- `is_collision_cell(s, action)` — Check if a cell shows an opponent stone (collision occurred)
+- `successor(s, action, is_collision)` — Compute the next info state string after an action
+- `is_terminal(s)` — Reuse `HexBoard` + union-find to detect if either player has won
+
+**Design**: Stateless — parses the info state string on every call, only needs `(rows, cols)` as context. This makes it safe for WASM where persistent Rust state is awkward.
+
+**WASM exposure**: `InfoStateOps` struct in `crates/wasm/` exposes 7 `wasm_bindgen` methods wrapping these operations for client-side use in DSaGe.
+
 ### Tested Properties (2x2 board)
 
 | Scenario | Expected | Status |
@@ -159,6 +184,7 @@ state.apply_action(action)           # make a move
 state.is_terminal()                  # game over?
 state.returns()                      # [black_payoff, white_payoff]
 state.info_state_string(player)      # info set key for CFR
+state.canonical_info_state(player)   # (canonical_key, is_canonical) for isomorphic reduction
 state.copy()                         # branch for tree traversal
 ```
 
@@ -174,9 +200,11 @@ This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 | Best Response / Exploitability | **Implemented** | `crates/core/src/solver/exploitability.rs` | Zinkevich et al. 2007 |
 | Isomorphic state reduction | **Implemented** | `crates/core/src/game/state.rs` | 180° rotation symmetry |
 | pONE (probability-1 win states) | **Implemented** | `crates/core/src/solver/pone.rs` | Bonnet 2018 / Thesis §4.2 |
-| SimPly (policy simplification) | Planned (port) | — | Thesis |
-| SimPly+ (fractionized) | Planned (port) | — | Thesis |
-| pONE (sure-win pruning) | Planned | — | Thesis |
+| SIP (policy simplification) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.4 |
+| SIP+ (fractionized) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.5 |
+| Deep CFR | **Implemented** | `darkhex/algorithms/deep_cfr.py` | Brown et al. ICML 2019 |
+| DREAM (Outcome Sampling Deep CFR) | Planned | — | Steinberger et al. 2020 |
+| NFSP | Planned | — | Heinrich & Silver 2016 |
 
 ## Experiment Pipeline
 
@@ -203,34 +231,71 @@ Each experiment follows `docs/EXPERIMENT_TEMPLATE.md`:
 
 ## Web Visualization — DSaGe (`game/`)
 
-DSaGe (Dark Hex Strategy Generator) is a Three.js web app for interactive strategy exploration.
+DSaGe (Dark Hex Strategy Generator) is a Three.js web app for interactive strategy exploration and manual strategy construction.
 
-**Tech stack**: TypeScript, Three.js, Vite, toon cel-shading
+**Tech stack**: TypeScript, Three.js, Vite, toon cel-shading, WASM (via `crates/wasm/`)
 
 **Visual features**:
 - Isometric hex board with flat-top tiles (MeshToonMaterial)
 - Screen-space post-processing outlines (depth + normal + object ID edge detection)
-- 3D chevron edge pieces forming zigzag border bands (Blue=Black, Red=White)
+- 3D chevron edge pieces forming zigzag border bands (colors match stone colors)
 - Interactive stone placement with hover raise animation
+- Selected tile highlight (green) with probability overlay text
+- Collision flash animation on opponent-occupied cells
+
+### Strategy Generator (PolGen)
+
+Ported from the old Python/Tkinter `darkhex/gui/` PolGen tool. Lets researchers manually build complete strategies by walking through every reachable info state for one player, assigning action probabilities at each step.
+
+**Architecture**: The generator operates on **info state strings**, not full game states. This is critical for handling collision branching — when a player's action collides with a hidden opponent stone, the info state forks into a collision successor without needing to track the full game tree.
+
+**Workflow**:
+1. Press `[S]` to open setup panel (board size, player, perfect recall toggle)
+2. Board rebuilds to selected dimensions, showing the chosen player's imperfect-information view
+3. Click empty tiles to select actions — tiles turn green with probability overlays
+4. Multiple tile selections default to equiprobable; editable via toolbar inputs
+5. Sum validation: green checkmark when probabilities sum to 1, amber warning otherwise; Confirm blocked if invalid
+6. Double-click for instant deterministic action (probability 1.0)
+7. Confirm advances the generator — collision branching creates successor info states automatically
+8. Undo/Restart/Rnd buttons for navigation
+9. On completion, the full policy exports as JSON (`Dict[info_state, Dict[action, probability]]`)
+10. Press `[Esc]` to exit strategy mode and restore the play-mode board
+
+**Key components**:
+- `StrategyGenerator` (`strategy/StrategyGenerator.ts`) — Core state machine managing the action stack, collision branching, and policy accumulation
+- `HistoryBuffer` (`strategy/HistoryBuffer.ts`) — Deep-clone snapshot buffer for undo/redo
+- `SetupPanel` (`ui/SetupPanel.ts`) — Configuration modal
+- `ActionPanel` (`ui/ActionPanel.ts`) — Bottom toolbar with probability editing and sum validation
+- `InfoPanel` (`ui/InfoPanel.ts`) — Top panel showing progress bar and current info state
+- `InfoStateOps` (`engine/InfoStateOps.ts`) — WASM wrapper calling into Rust for info state operations
+
+**Design decisions**:
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Operate on info state strings | Not full game states | Collision branching requires forking at the info set level; full states would need exponential tracking |
+| WASM InfoStateOps is stateless | Parses string each call | Avoids persistent Rust state in WASM; simpler lifetime management |
+| Terminal detection via HexBoard | Reuse union-find | Consistent win detection with the game engine; no duplicate logic |
+| Board-centric UX | Click tiles, overlays on 3D board | Researchers see the board as the player sees it, not an abstract tree |
 
 **Planned features**:
 - Strategy walker (step through MCCFR policies)
 - Game tree exploration
 - Live MCCFR convergence plots
-- WASM integration with `crates/wasm/` for client-side game logic
 
 ## Data Flow
 
 ```
 DarkHexState (Rust, crates/core/)
     ↓ PyO3 (crates/python/)          ↓ WASM (crates/wasm/)
-MCCFR algorithms (Python)         DSaGe web app (game/)
-    ↓                                 ↓
-Policy (Dict[str, Dict[int, f]])   Interactive strategy viewer
-    ↓
-Experiment runner (Python)
-    ↓
-Results (JSON/pickle)
+Tabular: MCCFR (Rust)             DSaGe web app (game/)
+Neural: Deep CFR (Python+PyTorch)     ↓                         ↓
+    ↓                              Interactive play mode     Strategy generator
+Policy (Dict[str, List[(int, f)]])                             ↓
+    ↓                                                    InfoStateOps (WASM)
+Experiment runner (Python)                                     ↓
+    ↓                                                    Policy (JSON export)
+Results (JSON/CSV)
     ↓
 matplotlib/seaborn → Paper figures
 ```

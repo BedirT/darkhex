@@ -5,18 +5,12 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
 - Date: 2026-04-02
-- Implemented thesis-style Abstract Best Response (Ab-BR) in Rust + PyO3
-  - Three-phase algorithm: (1) collect opponent reach probs, (2) bucket by info set, (3) reach-weighted value DFS
-  - Memoized on info_state(P0)+info_state(P1) for Phase 3, state_key for Phase 1 BR nodes
-  - 4x3 @ 1B iters: **Ab-BR=0.722** vs clairvoyant=0.989 (71 min, ~10 GB peak)
-  - 2x2: Ab-BR=0.231 vs clairvoyant=0.001
-  - Thesis reported 0.009 (SIP) / 0.002 (SIP+) — our raw MCCFR gives 0.722, needs SIP+ post-processing
-- Key discoveries:
-  - Clairvoyant BR (our original) gives the BR player full board visibility — valid upper bound but not thesis metric
-  - Ab-BR is a heuristic with reach weighting from thesis §4 — NOT a formal lower bound
-  - True BR (info-set-consistent) requires history enumeration — infeasible for 4x3
-  - The thesis 0.002 was SIP+ post-processed, not raw MCCFR output
-- Fixed pre-existing duplicate methods in mccfr.rs, lint errors in exp003
+- Implemented thesis-style Ab-BR + Deep CFR prototype
+  - Ab-BR: three-phase algorithm matching thesis code (reach collection → bucketing → reach-weighted DFS)
+  - 4x3 @ 1B: Ab-BR=0.722, clairvoyant=0.989, thesis (SIP+)=0.002
+  - Gap vs thesis: raw MCCFR gives 0.722; need SIP+ post-processing for 0.002
+  - Deep CFR: 2x2 expl 0.018, 3x2 expl 0.045, 3x3 expl 0.60, 4x3 ES infeasible
+  - Next: DREAM (OS variant) for 4x3+, SIP+ → Ab-BR pipeline
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -39,6 +33,11 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] Fixed strategy-action index bug in get_average_strategy()
 - [x] 117 tests (54 Rust + 63 Python), all passing
 - [x] EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 (clairvoyant BR)
+- [x] Deep CFR prototype: External Sampling + neural advantage/strategy nets
+- [x] EXP-004: Deep CFR on 2x2 (expl 0.018), 3x2 (expl 0.045), 3x3 (expl 0.60)
+- [x] Codex review fixes: LCFR counting, seeded buffers, renormalization, 3x3 config
+- [x] canonical_info_state() exposed in Python bindings
+- [x] PyTorch optional dependency + 22 Deep CFR tests
 - [x] pONE AND-OR fix: belief-space search replaces per-config minimax
 - [x] pONE MCCFR pruning disabled (causes missing strategies in subtrees)
 - [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
@@ -52,10 +51,9 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Up Next
 - [ ] Apply SIP/SIP+ to 1B strategy, then compute Ab-BR (thesis pipeline: MCCFR → SIP+ → Ab-BR)
+- [ ] Implement DREAM (Outcome Sampling Deep CFR) for 4x3+ boards
 - [ ] Run EXP-004: 10B iterations with dual Ab-BR + clairvoyant metrics
 - [ ] Optimize Ab-BR Phase 1 — opponent node memoization or DAG-based reach propagation
-- [ ] Deep CFR or ReBeL prototype (neural approach may converge faster on 4x3)
-- [ ] PR: merge Ab-BR + EXP-004 → re-dev
 
 ## Decisions Made
 - Ab-BR is a heuristic, NOT a guaranteed bound on clairvoyant BR — can be higher or lower (2026-04-01)
@@ -72,6 +70,7 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - src/ organized: game/ (foundation) + solver/ (algorithms) (2026-03-28)
 
 ## Failed Approaches
+- Deep CFR External Sampling on 4x3: single traversal >30s, exponential in branching factor. ES explores ALL actions at traverser nodes. 3x3 = 14.4s/traversal, 4x3 = infeasible. Need Outcome Sampling variant (DREAM) for 4x3+ (2026-04-02)
 - External Sampling on 3x3: 7 iters/s, exponential in branching factor
 - OS-MCCFR with epsilon at all nodes: biased importance weights (3 bugs)
 - Naive DFS enumeration: 6.2h on 3x3 (9.47B terminals)

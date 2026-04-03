@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 
+use darkhex_core::game::info_state_ops;
 use darkhex_core::game::state::DarkHexState;
 use darkhex_core::game::types::Player;
 
@@ -104,4 +105,103 @@ impl GameState {
 fn to_player(player: u8) -> Result<Player, JsError> {
     Player::try_from_index(player as usize)
         .ok_or_else(|| JsError::new(&format!("invalid player index: {player} (expected 0 or 1)")))
+}
+
+// ---------------------------------------------------------------------------
+// Info-state-level operations for the strategy generator
+// ---------------------------------------------------------------------------
+
+/// Stateless info state operations for the strategy generator.
+///
+/// Operates on info state *strings* — each method parses the string on every
+/// call. The struct only stores board dimensions.
+#[wasm_bindgen]
+pub struct InfoStateOps {
+    rows: usize,
+    cols: usize,
+}
+
+#[wasm_bindgen]
+impl InfoStateOps {
+    #[wasm_bindgen(constructor)]
+    pub fn new(rows: usize, cols: usize) -> Result<InfoStateOps, JsError> {
+        if rows == 0 || cols == 0 {
+            return Err(JsError::new("rows and cols must be >= 1"));
+        }
+        Ok(Self { rows, cols })
+    }
+
+    /// Initial info state for the given player: `"P0\n..\n.."`.
+    pub fn initial_info_state(&self, player: u8) -> Result<String, JsError> {
+        if player > 1 {
+            return Err(JsError::new("player must be 0 or 1"));
+        }
+        Ok(info_state_ops::initial_info_state(
+            self.rows,
+            self.cols,
+            player as usize,
+        ))
+    }
+
+    /// Legal actions (cell indices where view shows '.').
+    pub fn legal_actions(&self, info_state: &str) -> Result<Vec<usize>, JsError> {
+        let parsed = self.parse(info_state)?;
+        Ok(info_state_ops::legal_actions(&parsed))
+    }
+
+    /// Can collision occur at this info state?
+    pub fn is_collision_possible(&self, info_state: &str) -> Result<bool, JsError> {
+        let parsed = self.parse(info_state)?;
+        Ok(info_state_ops::is_collision_possible(&parsed))
+    }
+
+    /// Successor info state after action.
+    ///
+    /// `stone_player` controls outcome:
+    /// - same as info state player → successful placement
+    /// - opponent → collision (player discovers opponent's stone)
+    pub fn info_state_after_action(
+        &self,
+        info_state: &str,
+        action: usize,
+        stone_player: u8,
+        perfect_recall: bool,
+    ) -> Result<String, JsError> {
+        let parsed = self.parse(info_state)?;
+        info_state_ops::info_state_after_action(
+            &parsed,
+            action,
+            stone_player as usize,
+            perfect_recall,
+        )
+        .map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Is this info state terminal?
+    pub fn is_info_state_terminal(&self, info_state: &str) -> Result<bool, JsError> {
+        let parsed = self.parse(info_state)?;
+        Ok(info_state_ops::is_info_state_terminal(&parsed))
+    }
+
+    /// Board view as flat i8 array for rendering (0=empty, 1=black, 2=white).
+    pub fn board_view_flat(&self, info_state: &str) -> Result<Vec<i8>, JsError> {
+        let parsed = self.parse(info_state)?;
+        Ok(info_state_ops::board_view_flat(&parsed))
+    }
+
+    /// Player index from info state string (0 or 1).
+    pub fn player(&self, info_state: &str) -> Result<u8, JsError> {
+        let parsed = self.parse(info_state)?;
+        Ok(parsed.player as u8)
+    }
+}
+
+impl InfoStateOps {
+    fn parse(
+        &self,
+        info_state: &str,
+    ) -> Result<info_state_ops::ParsedInfoState, JsError> {
+        info_state_ops::parse_info_state(info_state, self.rows, self.cols)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
 }

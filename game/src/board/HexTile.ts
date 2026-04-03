@@ -62,11 +62,13 @@ export class HexTile3D {
   private _state: TileState = 'empty'
   private _hovered = false
   private _isLast = false
+  private _selected = false
 
   private topMat: THREE.MeshToonMaterial
   private sideMat: THREE.MeshToonMaterial
   private stoneGroup: THREE.Group | null = null
   private _baseY = 0
+  private _collisionTimer = 0
 
   constructor(row: number, col: number, cellIndex: number) {
     this.row = row
@@ -87,12 +89,23 @@ export class HexTile3D {
 
   get state(): TileState { return this._state }
 
+  get selected(): boolean { return this._selected }
+
   setState(s: TileState, isLast = false): void {
     this._state = s
     this._isLast = isLast
     this._hovered = false
+    this._selected = false
     this._updateColors()
     this._updateStone()
+  }
+
+  setSelected(s: boolean): void {
+    if (this._state !== 'empty') return
+    this._selected = s
+    this._updateColors()
+    // Raise selected tiles slightly
+    this.group.userData['targetY'] = s ? this._baseY + 0.06 : this._baseY
   }
 
   setHovered(h: boolean): void {
@@ -100,7 +113,9 @@ export class HexTile3D {
     if (this._state !== 'empty') return
     this._hovered = h
     this._updateColors()
-    this.group.userData['targetY'] = h ? this._baseY + 0.10 : this._baseY
+    if (!this._selected) {
+      this.group.userData['targetY'] = h ? this._baseY + 0.10 : this._baseY
+    }
   }
 
   setPosition(x: number, y: number, z: number): void {
@@ -108,21 +123,45 @@ export class HexTile3D {
     this._baseY = y
   }
 
+  /** Trigger a collision flash animation (amber flash for ~0.4s). */
+  flashCollision(): void {
+    this._collisionTimer = 0.4
+  }
+
   tickAnimation(dt: number): void {
+    // Hover / position animation
     const target = this.group.userData['targetY'] as number | undefined
-    if (target === undefined) return
-    const cur = this.group.position.y
-    const diff = target - cur
-    if (Math.abs(diff) < 0.001) {
-      this.group.position.y = target
-      delete this.group.userData['targetY']
-    } else {
-      this.group.position.y += diff * Math.min(1, dt * 14)
+    if (target !== undefined) {
+      const cur = this.group.position.y
+      const diff = target - cur
+      if (Math.abs(diff) < 0.001) {
+        this.group.position.y = target
+        delete this.group.userData['targetY']
+      } else {
+        this.group.position.y += diff * Math.min(1, dt * 14)
+      }
+    }
+
+    // Collision flash
+    if (this._collisionTimer > 0) {
+      this._collisionTimer -= dt
+      // Amber flash that fades out
+      const t = Math.max(0, this._collisionTimer / 0.4)
+      const r = Math.floor(0xd5 + (0xff - 0xd5) * t)
+      const g = Math.floor(0xb7 + (0x8c - 0xb7) * t)
+      const b = Math.floor(0xb7 + (0x00 - 0xb7) * t)
+      this.topMat.color.setRGB(r / 255, g / 255, b / 255)
+      if (this._collisionTimer <= 0) {
+        this._updateColors()
+      }
     }
   }
 
   private _updateColors(): void {
-    if (this._hovered) {
+    if (this._selected) {
+      this.topMat.color.setHex(PALETTE.selectedTop)
+      this.sideMat.color.setHex(PALETTE.selectedSide)
+    } else if (this._hovered) {
       this.topMat.color.setHex(PALETTE.hoverTop)
       this.sideMat.color.setHex(PALETTE.tileSide)
     } else if (this._isLast) {

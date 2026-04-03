@@ -181,6 +181,10 @@ impl DarkHexState {
             .info_state_string_perfect_recall(player.to_core())
     }
 
+    fn canonical_info_state(&self, player: Player) -> (String, bool) {
+        self.inner.canonical_info_state(player.to_core())
+    }
+
     fn copy(&self) -> Self {
         Self {
             inner: self.inner.copy(),

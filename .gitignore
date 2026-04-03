@@ -30,10 +30,10 @@ dist/
 internal_docs/
 darkhex/data/
 
-# Claude Code (ephemeral / machine-specific)
-.claude/logs/
-.claude/skills/
-.claude/settings.local.json
+# Claude Code (ephemeral / machine-specific — covers nested subdirs too)
+**/.claude/logs/
+**/.claude/skills/
+**/.claude/settings.local.json
 
 # Debug symbols
 *.dSYM/

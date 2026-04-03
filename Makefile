@@ -1,4 +1,4 @@
-.PHONY: build dev test test-rust test-python lint typecheck check clean fmt wasm
+.PHONY: build dev test test-rust test-python lint typecheck check clean fmt wasm game
 
 # Build the Rust extension (release mode)
 build:
@@ -42,6 +42,10 @@ fmt:
 # Build WASM package for DSaGe web app
 wasm:
 	cd crates/wasm && wasm-pack build --target web --out-dir ../../game/pkg
+
+# Run DSaGe web app (builds WASM first if needed)
+game: wasm
+	cd game && npm run dev
 
 # Full verification (lint + test)
 check:

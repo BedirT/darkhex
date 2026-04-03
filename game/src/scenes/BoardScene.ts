@@ -3,7 +3,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { BoardLayout3D } from '../board/BoardLayout'
 import { HexTile3D } from '../board/HexTile'
 import { boardCenter, PALETTE } from '../board/IsometricHex'
-import { GameEngine, type Player } from '../engine/GameEngine'
 import { InfoStateOps } from '../engine/InfoStateOps'
 import { createOutlineComposer } from '../postprocess/OutlinePostProcess'
 import { StrategyGenerator } from '../strategy/StrategyGenerator'
@@ -13,9 +12,6 @@ import { InfoPanel } from '../ui/InfoPanel'
 
 const BOARD_ROWS = 4
 const BOARD_COLS = 3
-const PLAYER_LABEL: Record<Player, string> = { 0: 'Black', 1: 'White' }
-
-type Mode = 'play' | 'strategy'
 
 /**
  * Main 3D scene: orthographic camera at isometric angle,
@@ -27,7 +23,6 @@ export class BoardScene {
   private camera: THREE.OrthographicCamera
   private controls: OrbitControls
 
-  private engine!: GameEngine
   private board!: BoardLayout3D
 
   private outlineRender!: ReturnType<typeof createOutlineComposer>
@@ -35,18 +30,12 @@ export class BoardScene {
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
   private hoveredTile: HexTile3D | null = null
-  private lastMoveIndex: number | null = null
 
   private clock = new THREE.Clock()
   private _rafId = 0
 
-  private statusEl!: HTMLDivElement
-  private infoEl!: HTMLDivElement
-  private hudTop!: HTMLDivElement
-  private hudBottom!: HTMLDivElement
-
   // Strategy mode
-  private mode: Mode = 'play'
+  private _setupOpen = false
   private stratGen: StrategyGenerator | null = null
   private setupPanel!: SetupPanel
   private actionPanel!: ActionPanel
@@ -110,10 +99,8 @@ export class BoardScene {
       thickness: 2,
     })
 
-    // ── HUD ───────────────────────────────────────────────────────────────
-    this._buildHud()
-
     // ── Events ────────────────────────────────────────────────────────────
+    this.container.style.position = 'relative'
     this.renderer.domElement.addEventListener('pointermove', this._onPointerMove)
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
     window.addEventListener('resize', this._onResize)
@@ -121,7 +108,6 @@ export class BoardScene {
   }
 
   async init(): Promise<void> {
-    this.engine = await GameEngine.create(BOARD_ROWS, BOARD_COLS)
     this.board = new BoardLayout3D(this.scene, BOARD_ROWS, BOARD_COLS)
     this.setupPanel = new SetupPanel(this.container)
     this.actionPanel = new ActionPanel(this.container)
@@ -139,8 +125,10 @@ export class BoardScene {
     this.actionPanel.onRnd(() => this._handleStrategyAction('r'))
     this.actionPanel.onProbChange((probs) => this._syncProbOverlaysFromInputs(probs))
 
-    this._updateHud()
     this._animate()
+
+    // Go straight into strategy mode
+    this._enterStrategyMode()
   }
 
   // ── Render loop ─────────────────────────────────────────────────────────
@@ -150,7 +138,7 @@ export class BoardScene {
     const dt = this.clock.getDelta()
     this.controls.update()
     if (this.board) this.board.tickAnimations(dt)
-    if (this.mode === 'strategy') this._updateProbLabelPositions()
+    this._updateProbLabelPositions()
     this.outlineRender.render()
   }
 
@@ -217,64 +205,39 @@ export class BoardScene {
     this._updatePointer(e)
     const tile = this._raycastTile()
     if (!tile) return
+    if (!this.stratGen) return
+    if (tile.state !== 'empty') return
 
-    if (this.mode === 'strategy') {
-      if (!this.stratGen) return
-      if (tile.state !== 'empty') return
+    const now = Date.now()
+    const isDoubleClick = (now - this._lastClickTime < 400) && tile.cellIndex === this._lastClickTile
+    this._lastClickTime = now
+    this._lastClickTile = tile.cellIndex
 
-      const now = Date.now()
-      const isDoubleClick = (now - this._lastClickTime < 400) && tile.cellIndex === this._lastClickTile
-      this._lastClickTime = now
-      this._lastClickTile = tile.cellIndex
-
-      if (isDoubleClick) {
-        // Double-click: instant deterministic action
-        this._clearSelection()
-        this._handleConfirm([tile.cellIndex], [1.0])
-        return
-      }
-
-      // Toggle tile selection
-      if (this.selectedTiles.has(tile.cellIndex)) {
-        this.selectedTiles.delete(tile.cellIndex)
-        tile.setSelected(false)
-      } else {
-        this.selectedTiles.set(tile.cellIndex, 1)
-        tile.setSelected(true)
-      }
-      this._syncSelectionUI()
+    if (isDoubleClick) {
+      // Double-click: instant deterministic action
+      this._clearSelection()
+      this._handleConfirm([tile.cellIndex], [1.0])
       return
     }
 
-    // Play mode
-    if (this.engine.isTerminal) return
-    const legal = this.engine.legalActions()
-    if (!legal.includes(tile.cellIndex)) return
-
-    const result = this.engine.applyAction(tile.cellIndex)
-    this.lastMoveIndex = result.placed ? tile.cellIndex : null
-    this.board.applyBoard(this.engine.trueBoard(), this.lastMoveIndex)
-    this._updateHud()
+    // Toggle tile selection
+    if (this.selectedTiles.has(tile.cellIndex)) {
+      this.selectedTiles.delete(tile.cellIndex)
+      tile.setSelected(false)
+    } else {
+      this.selectedTiles.set(tile.cellIndex, 1)
+      tile.setSelected(true)
+    }
+    this._syncSelectionUI()
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (this.mode === 'strategy') {
-      if (e.key === 'Escape') this._exitStrategyMode()
-      if (e.key === 'Enter' && this.selectedTiles.size > 0) {
-        const result = this.actionPanel.getActionProbs()
-        if (result) this._handleConfirm(result.actions, result.probs)
-      }
-      return
+    if (this._setupOpen) return
+    if (e.key === 'Escape') this._restartStrategyMode()
+    if (e.key === 'Enter' && this.selectedTiles.size > 0) {
+      const result = this.actionPanel.getActionProbs()
+      if (result) this._handleConfirm(result.actions, result.probs)
     }
-    if (e.key === 'r' || e.key === 'R') this._reset()
-    if (e.key === 's' || e.key === 'S') this._enterStrategyMode()
-  }
-
-  private async _reset(): Promise<void> {
-    this.engine = await GameEngine.create(BOARD_ROWS, BOARD_COLS)
-    this.lastMoveIndex = null
-    this.board.applyBoard(this.engine.trueBoard(), null)
-    this._updateHud()
   }
 
   // ── Strategy mode ─────────────────────────────────────────────────────────
@@ -305,8 +268,10 @@ export class BoardScene {
     this.controls.update()
   }
 
-  private async _enterStrategyMode(): Promise<void> {
-    const config = await this.setupPanel.show()
+  private async _enterStrategyMode(cancellable = false): Promise<void> {
+    this._setupOpen = true
+    const config = await this.setupPanel.show(cancellable)
+    this._setupOpen = false
     if (!config) return
 
     // Rebuild board for the requested dimensions
@@ -314,31 +279,46 @@ export class BoardScene {
 
     const infoOps = await InfoStateOps.create(config.rows, config.cols)
     this.stratGen = new StrategyGenerator(infoOps, config)
-    this.mode = 'strategy'
 
-    this.hudTop.style.display = 'none'
-    this.hudBottom.style.display = 'none'
     this.actionPanel.show()
     this.infoPanel.show()
     this._updateStrategyView()
   }
 
-  private _exitStrategyMode(): void {
-    this._clearSelection()
-    // Clear prob overlay labels directly (in case _clearSelection skipped due to empty stratGen)
-    for (const el of this.probLabels.values()) el.remove()
-    this.probLabels.clear()
-    this.mode = 'play'
-    this.stratGen = null
+  /** Escape: show setup panel; cancel returns to current strategy. */
+  private async _restartStrategyMode(): Promise<void> {
+    const hadStrategy = this.stratGen !== null
+
+    // Hide panels while setup is showing
     this.actionPanel.hide()
     this.infoPanel.hide()
 
-    // Restore play-mode board and HUD
-    this.hudTop.style.display = 'flex'
-    this.hudBottom.style.display = 'flex'
-    this._rebuildBoard(BOARD_ROWS, BOARD_COLS)
-    this.board.applyBoard(this.engine.trueBoard(), this.lastMoveIndex)
-    this._updateHud()
+    this._setupOpen = true
+    const config = await this.setupPanel.show(hadStrategy)
+    this._setupOpen = false
+    if (!config) {
+      // User cancelled — restore previous strategy view if one exists
+      if (hadStrategy) {
+        this.actionPanel.show()
+        this.infoPanel.show()
+      }
+      return
+    }
+
+    // Tear down old strategy and start fresh
+    this._clearSelection()
+    for (const el of this.probLabels.values()) el.remove()
+    this.probLabels.clear()
+    this.stratGen = null
+
+    this._rebuildBoard(config.rows, config.cols)
+
+    const infoOps = await InfoStateOps.create(config.rows, config.cols)
+    this.stratGen = new StrategyGenerator(infoOps, config)
+
+    this.actionPanel.show()
+    this.infoPanel.show()
+    this._updateStrategyView()
   }
 
   /** Confirm selected actions with given probabilities. */
@@ -412,8 +392,8 @@ export class BoardScene {
       label.textContent = prob
       label.style.cssText = `
         position: absolute; transform: translate(-50%, -50%);
-        color: #fff; font-family: 'Courier New', monospace; font-size: 14px;
-        font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        color: #fff; font-family: 'Nunito', -apple-system, sans-serif; font-size: 16px;
+        font-weight: 800; text-shadow: 0 1px 4px rgba(0,0,0,0.5);
         pointer-events: none;
       `
       this.probOverlay.appendChild(label)
@@ -463,6 +443,7 @@ export class BoardScene {
       remaining,
       player: this.stratGen.player,
       isCollision: this.stratGen.lastCollisionIndex !== null,
+      perfectRecall: this.stratGen.perfectRecall,
     })
   }
 
@@ -494,60 +475,4 @@ export class BoardScene {
     this.outlineRender.resize(w, h)
   }
 
-  // ── HUD ───────────────────────────────────────────────────────────────
-
-  private _buildHud(): void {
-    this.hudTop = document.createElement('div')
-    this.hudTop.style.cssText = `
-      position: absolute; top: 0; left: 0; width: 100%; pointer-events: none;
-      font-family: 'Courier New', monospace; color: #4a5568;
-      padding: 16px 24px; display: flex; flex-direction: column; gap: 4px;
-    `
-    this.container.style.position = 'relative'
-    this.container.appendChild(this.hudTop)
-
-    const title = document.createElement('div')
-    title.textContent = 'DSaGe — Dark Hex Strategy Generator'
-    title.style.cssText = 'font-size: 13px; color: #64748b;'
-    this.hudTop.appendChild(title)
-
-    this.statusEl = document.createElement('div')
-    this.statusEl.style.cssText = 'font-size: 15px; margin-top: 4px;'
-    this.hudTop.appendChild(this.statusEl)
-
-    this.hudBottom = document.createElement('div')
-    this.hudBottom.style.cssText = `
-      position: absolute; bottom: 0; left: 0; width: 100%;
-      padding: 10px 24px; font-size: 11px; color: #64748b;
-      display: flex; justify-content: space-between; pointer-events: none;
-    `
-    this.container.appendChild(this.hudBottom)
-
-    this.infoEl = document.createElement('div')
-    this.hudBottom.appendChild(this.infoEl)
-
-    const legend = document.createElement('div')
-    legend.innerHTML =
-      '<span style="color:#5c6bc0">● Black</span> top↔bottom &nbsp; ' +
-      '<span style="color:#ef5350">● White</span> left↔right &nbsp; ' +
-      '<span style="color:#94a3b8">[R] restart &nbsp; [S] strategy</span>'
-    this.hudBottom.appendChild(legend)
-  }
-
-  private _updateHud(): void {
-    if (this.engine.isTerminal) {
-      const w = this.engine.winner!
-      const color = w === 0 ? '#5c6bc0' : '#ef5350'
-      this.statusEl.innerHTML = `<span style="color:${color}">${PLAYER_LABEL[w]} wins!</span>`
-      this.infoEl.textContent = ''
-    } else {
-      const p = this.engine.currentPlayer
-      const color = p === 0 ? '#5c6bc0' : '#ef5350'
-      const n = this.engine.legalActions().length
-      this.statusEl.innerHTML =
-        `<span style="color:${color}">${PLAYER_LABEL[p]}'s turn</span>` +
-        ` <span style="color:#94a3b8; font-size:13px">(${n} moves)</span>`
-      this.infoEl.textContent = `info: ${this.engine.infoStateString(p)}`
-    }
-  }
 }

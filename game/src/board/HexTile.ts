@@ -96,6 +96,8 @@ export class HexTile3D {
     this._isLast = isLast
     this._hovered = false
     this._selected = false
+    // Reset tile to base height (e.g. if it was hovered/selected when stone placed)
+    this.group.userData['targetY'] = this._baseY
     this._updateColors()
     this._updateStone()
   }

@@ -364,8 +364,8 @@ export class BoardScene {
       label.textContent = prob
       label.style.cssText = `
         position: absolute; transform: translate(-50%, -50%);
-        color: #fff; font-family: 'Courier New', monospace; font-size: 14px;
-        font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        color: #fff; font-family: 'Nunito', -apple-system, sans-serif; font-size: 16px;
+        font-weight: 800; text-shadow: 0 1px 4px rgba(0,0,0,0.5);
         pointer-events: none;
       `
       this.probOverlay.appendChild(label)

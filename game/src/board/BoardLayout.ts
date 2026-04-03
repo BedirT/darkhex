@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { HexTile3D, type TileState } from './HexTile'
+import { HexTile3D, type TileState, type StoneAnim } from './HexTile'
 import { gridToWorld, HEX, PALETTE } from './IsometricHex'
 import { toonMat } from './ToonMaterials'
 
@@ -177,13 +177,19 @@ export class BoardLayout3D {
    * Render from an imperfect-information view array (strategy mode).
    * Same format as applyBoard but with optional collision highlight.
    */
-  applyView(view: Int8Array, collisionIndex: number | null = null): void {
+  applyView(
+    view: Int8Array,
+    collisionIndex: number | null = null,
+    defaultAnim: StoneAnim = 'rise',
+    dropOverrides?: Set<number>,
+  ): void {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const idx = r * this.cols + c
         const cell = view[idx]
         const state: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
-        this.tiles[r][c].setState(state, false)
+        const anim = dropOverrides?.has(idx) ? 'drop' as StoneAnim : defaultAnim
+        this.tiles[r][c].setState(state, false, anim)
         if (idx === collisionIndex) {
           this.tiles[r][c].flashCollision()
         }

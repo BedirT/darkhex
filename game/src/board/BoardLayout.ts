@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { HexTile3D, type TileState } from './HexTile'
+import { HexTile3D, type TileState, type StoneAnim } from './HexTile'
 import { gridToWorld, HEX, PALETTE } from './IsometricHex'
 import { toonMat } from './ToonMaterials'
 
@@ -177,15 +177,57 @@ export class BoardLayout3D {
    * Render from an imperfect-information view array (strategy mode).
    * Same format as applyBoard but with optional collision highlight.
    */
-  applyView(view: Int8Array, collisionIndex: number | null = null): void {
+  applyView(
+    view: Int8Array,
+    collisionIndex: number | null = null,
+    defaultAnim: StoneAnim = 'rise',
+    dropOverrides?: Set<number>,
+  ): void {
+    // First pass: collect tiles that are losing their stone (occupied → empty)
+    const vanishing: HexTile3D[] = []
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const idx = r * this.cols + c
         const cell = view[idx]
-        const state: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
-        this.tiles[r][c].setState(state, false)
+        const newState: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
+        const tile = this.tiles[r][c]
+
+        if (tile.state !== 'empty' && newState === 'empty') {
+          vanishing.push(tile)
+        }
+      }
+    }
+
+    // Stagger vanish: accelerating delays (first slow, last fast)
+    // Delay formula: quadratic spacing so gaps shrink toward the end
+    const vanishCount = vanishing.length
+    if (vanishCount > 0) {
+      const totalStagger = Math.min(vanishCount * 0.08, 0.5) // cap total stagger
+      for (let i = 0; i < vanishCount; i++) {
+        // Quadratic: early stones get more time, later ones are rapid
+        const frac = vanishCount > 1 ? i / (vanishCount - 1) : 0
+        const delay = totalStagger * (1 - (1 - frac) ** 2)
+        // Stones later in the sequence also vanish faster
+        const dur = 0.3 - 0.1 * frac // 0.3s → 0.2s
+        vanishing[i].startVanish(delay, dur)
+      }
+    }
+
+    // Second pass: apply new states for non-vanishing tiles
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const idx = r * this.cols + c
+        const cell = view[idx]
+        const newState: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
+        const tile = this.tiles[r][c]
+
+        // Skip tiles that are vanishing — they'll clean themselves up
+        if (tile.state !== 'empty' && newState === 'empty') continue
+
+        const anim = dropOverrides?.has(idx) ? 'drop' as StoneAnim : defaultAnim
+        tile.setState(newState, false, anim)
         if (idx === collisionIndex) {
-          this.tiles[r][c].flashCollision()
+          tile.flashCollision()
         }
       }
     }

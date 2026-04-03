@@ -4,6 +4,9 @@ import { toonMat } from './ToonMaterials'
 
 export type TileState = 'empty' | 'black' | 'white'
 
+/** How a newly placed stone should animate in. */
+export type StoneAnim = 'drop' | 'rise' | 'none'
+
 // ── Shared geometries ───────────────────────────────────────────────────────
 
 let _tileGeo: THREE.ExtrudeGeometry | null = null
@@ -69,6 +72,19 @@ export class HexTile3D {
   private stoneGroup: THREE.Group | null = null
   private _baseY = 0
   private _collisionTimer = 0
+  private _stoneDropTimer = 0        // > 0 while drop/animation is active
+  private _stoneRestY = 0            // final resting Y of the stone group
+  private _stoneAnim: StoneAnim = 'drop'
+  private _dropLanded = false        // true once landing triggers
+  private _flipTimer = -1            // > 0 while tile flip is active
+  private _flipPivot: THREE.Group | null = null  // pivot for flip rotation
+  private _vanishTimer = -99         // -99 = inactive; negative = waiting for delay; positive = animating
+  private _vanishDur = 0.3           // per-stone vanish duration
+
+  /** Called when the stone first hits the board (at the bounce point). */
+  onDropLand: (() => void) | null = null
+  /** Called when a stone starts vanishing. */
+  onVanishStart: (() => void) | null = null
 
   constructor(row: number, col: number, cellIndex: number) {
     this.row = row
@@ -91,15 +107,26 @@ export class HexTile3D {
 
   get selected(): boolean { return this._selected }
 
-  setState(s: TileState, isLast = false): void {
+  get stoneAnim(): StoneAnim { return this._stoneAnim }
+
+  setState(s: TileState, isLast = false, anim: StoneAnim = 'drop'): void {
+    const changed = s !== this._state
+    const wasVanishing = this._vanishTimer > -99
     this._state = s
     this._isLast = isLast
     this._hovered = false
     this._selected = false
+    this._vanishTimer = -99  // cancel any active vanish
     // Reset tile to base height (e.g. if it was hovered/selected when stone placed)
     this.group.userData['targetY'] = this._baseY
     this._updateColors()
-    this._updateStone()
+    if (changed) {
+      this._updateStone(anim)
+    } else if (wasVanishing && this.stoneGroup) {
+      // Vanish was cancelled but state didn't change — restore stone transform
+      this.stoneGroup.position.set(0, this._stoneRestY, 0)
+      this.stoneGroup.scale.setScalar(1)
+    }
   }
 
   setSelected(s: boolean): void {
@@ -130,6 +157,17 @@ export class HexTile3D {
     this._collisionTimer = 0.4
   }
 
+  /**
+   * Start a vanish animation: stone floats up + shrinks away.
+   * @param delay seconds before the animation starts (for staggering)
+   * @param dur how long the vanish takes once it starts
+   */
+  startVanish(delay: number, dur = 0.3): void {
+    if (!this.stoneGroup) return
+    this._vanishTimer = -delay  // negative = waiting for delay
+    this._vanishDur = dur
+  }
+
   tickAnimation(dt: number): void {
     // Hover / position animation
     const target = this.group.userData['targetY'] as number | undefined
@@ -141,6 +179,134 @@ export class HexTile3D {
         delete this.group.userData['targetY']
       } else {
         this.group.position.y += diff * Math.min(1, dt * 14)
+      }
+    }
+
+    // Stone placement animation (drop from above or rise from below)
+    if (this._stoneDropTimer >= 0 && this.stoneGroup) {
+      this._stoneDropTimer += dt
+
+      if (this._stoneAnim === 'drop') {
+        // ── Phase 1: Materialize (0–0.15s) then Phase 2: Fall+bounce ───
+        const matDur = 0.30  // materialize duration (needs time for elastic bounce)
+        const dropH = 1.2
+        const fallDur = 0.35 // fall+bounce duration
+        const timer = this._stoneDropTimer
+
+        if (timer < matDur) {
+          // Elastic scale-up: overshoots to ~1.3, bounces back, settles at 1.0
+          const mt = timer / matDur
+          // Elastic ease-out: decaying sine oscillation
+          const p = 0.3  // oscillation period
+          const s = p / 4
+          const elastic = Math.pow(2, -10 * mt) * Math.sin((mt - s) * (2 * Math.PI) / p) + 1
+          this.stoneGroup.scale.setScalar(Math.max(0, elastic))
+          // Stay in place at the top
+          this.stoneGroup.position.y = this._stoneRestY + dropH
+        } else {
+          // Full scale
+          this.stoneGroup.scale.setScalar(1)
+
+          const ft = Math.min((timer - matDur) / fallDur, 1)
+
+          // Fire landing sound at first impact
+          if (ft >= 0.5 && !this._dropLanded) {
+            this._dropLanded = true
+            this.onDropLand?.()
+          }
+
+          let y: number
+          if (ft < 0.5) {
+            const f = ft / 0.5
+            y = this._stoneRestY + dropH * (1 - f * f)
+          } else if (ft < 0.75) {
+            const bt = (ft - 0.5) / 0.25
+            y = this._stoneRestY + dropH * 0.12 * Math.sin(bt * Math.PI)
+          } else {
+            const bt = (ft - 0.75) / 0.25
+            y = this._stoneRestY + dropH * 0.03 * Math.sin(bt * Math.PI)
+          }
+          this.stoneGroup.position.y = y
+
+          if (ft >= 1) {
+            this.stoneGroup.position.y = this._stoneRestY
+            this.stoneGroup.scale.setScalar(1)
+            this._stoneDropTimer = -1
+          }
+        }
+
+      }
+    }
+
+    // Tile flip animation (rise/reveal)
+    if (this._flipTimer >= 0 && this._flipPivot) {
+      this._flipTimer += dt
+      const dur = 0.9
+      const t = Math.min(this._flipTimer / dur, 1)
+
+      // Ease-out quart — fast start, smooth settle
+      const ease = 1 - (1 - t) ** 4
+
+      // Rotate 0 → PI around X axis (stone swings from below to above)
+      this._flipPivot.rotation.x = Math.PI * ease
+
+      // Fire sound at 90°
+      if (ease >= 0.5 && !this._dropLanded) {
+        this._dropLanded = true
+        this.onDropLand?.()
+      }
+
+      if (t >= 1) {
+        // Flip done — reparent back to group at normal positions
+        this._flipPivot.remove(this.mesh)
+        this.mesh.position.y = 0
+        this.group.add(this.mesh)
+
+        if (this.stoneGroup) {
+          this._flipPivot.remove(this.stoneGroup)
+          this.stoneGroup.position.set(0, this._stoneRestY, 0)
+          this.group.add(this.stoneGroup)
+        }
+
+        this.group.remove(this._flipPivot)
+        this._flipPivot = null
+        this._flipTimer = -1
+      }
+    }
+
+    // Vanish animation (stone floats up + shrinks away)
+    if (this._vanishTimer > -99 && this._vanishTimer < 100 && this.stoneGroup) {
+      const wasBefore = this._vanishTimer < 0
+      this._vanishTimer += dt
+      if (this._vanishTimer >= 0) {
+        // Fire sound on first active frame
+        if (wasBefore) this.onVanishStart?.()
+        // Animation active
+        const t = Math.min(this._vanishTimer / this._vanishDur, 1)
+        // Ease-in quad: starts slow, accelerates away
+        const ease = t * t
+
+        // Float upward
+        this.stoneGroup.position.y = this._stoneRestY + ease * 1.0
+
+        // Shrink to nothing with slight acceleration
+        this.stoneGroup.scale.setScalar(Math.max(0, 1 - ease))
+
+        if (t >= 1) {
+          // Remove the stone and set state to empty
+          this.stoneGroup.traverse(obj => {
+            if (obj instanceof THREE.Mesh) {
+              const mat = obj.material
+              if (Array.isArray(mat)) mat.forEach(m => m.dispose())
+              else mat.dispose()
+            }
+          })
+          this.group.remove(this.stoneGroup)
+          this.stoneGroup = null
+          this._state = 'empty'
+          this._updateColors()
+          this._vanishTimer = -99  // done
+        }
       }
     }
 
@@ -175,7 +341,18 @@ export class HexTile3D {
     }
   }
 
-  private _updateStone(): void {
+  private _updateStone(anim: StoneAnim = 'drop'): void {
+    // Clean up any in-progress flip — reset mesh position to normal
+    if (this._flipPivot) {
+      this._flipPivot.remove(this.mesh)
+      if (this.stoneGroup) this._flipPivot.remove(this.stoneGroup)
+      this.group.remove(this._flipPivot)
+      this.mesh.position.y = 0  // reset from -pivotY offset
+      this.group.add(this.mesh)
+      this._flipPivot = null
+      this._flipTimer = -1
+    }
+
     if (this.stoneGroup) {
       this.stoneGroup.traverse(obj => {
         if (obj instanceof THREE.Mesh) {
@@ -198,7 +375,62 @@ export class HexTile3D {
 
     this.stoneGroup = new THREE.Group()
     this.stoneGroup.add(stoneMesh)
-    this.stoneGroup.position.set(0, HEX.STONE_H + HEX.STONE_LIP + HEX.TILE_LIP + 0.08, 0)
-    this.group.add(this.stoneGroup)
+
+    // Final resting Y within the tile group
+    this._stoneRestY = HEX.STONE_H + HEX.STONE_LIP + HEX.TILE_LIP + 0.08
+
+    if (anim === 'drop') {
+      // ── Drop from above — player's action ────────────────────────────
+      this.stoneGroup.position.set(0, this._stoneRestY + 1.2, 0)
+      this.stoneGroup.scale.setScalar(0.01)  // materializes from nothing
+      this._stoneDropTimer = 0.001
+      this._stoneAnim = 'drop'
+      this._dropLanded = false
+      this.group.add(this.stoneGroup)
+
+    } else if (anim === 'rise') {
+      // ── Tile flip — stone attached underneath, both rotate together ──
+      //
+      // How it works:
+      //   1. Stone is placed at -stoneRestY (below tile) in the pivot
+      //   2. Pivot starts at rotation.x = 0 (stone is underneath, hidden)
+      //   3. Pivot rotates from 0 → PI around X axis
+      //   4. At PI, local -Y maps to world +Y = stone ends up on top
+      //   5. Tile is upside-down but looks identical (symmetric hex prism)
+      //
+      this._stoneAnim = 'rise'
+      this._dropLanded = false
+
+      this.stoneGroup.scale.setScalar(1)
+
+      // Pivot at the vertical center of the tile so it rotates in place.
+      const pivotY = HEX.HEIGHT / 2
+      this._flipPivot = new THREE.Group()
+      this._flipPivot.position.y = pivotY
+
+      this.group.remove(this.mesh)
+      this.mesh.position.y = -pivotY
+      // Stone underneath: top of stone must be at or below tile bottom (-pivotY).
+      // Stone mesh top is at pos + STONE_H + STONE_LIP relative to stoneGroup origin.
+      // So pos = -pivotY - (STONE_H + STONE_LIP)
+      this.stoneGroup.position.set(0, -pivotY - HEX.STONE_H - HEX.STONE_LIP, 0)
+
+      this._flipPivot.add(this.mesh)
+      this._flipPivot.add(this.stoneGroup)
+      this._flipPivot.rotation.x = 0
+      this.group.add(this._flipPivot)
+
+      this._flipTimer = 0.001
+      this._stoneDropTimer = -1
+
+    } else {
+      // ── No animation — snap to position ──────────────────────────────
+      this.stoneGroup.position.set(0, this._stoneRestY, 0)
+      this.stoneGroup.scale.setScalar(1)
+      this._stoneDropTimer = -1
+      this.group.add(this.stoneGroup)
+    }
+    // NOTE: each branch adds stoneGroup to the correct parent.
+    // Do NOT add this.group.add(this.stoneGroup) here.
   }
 }

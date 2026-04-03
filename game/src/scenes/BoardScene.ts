@@ -9,6 +9,7 @@ import { StrategyGenerator } from '../strategy/StrategyGenerator'
 import { SetupPanel } from '../ui/SetupPanel'
 import { ActionPanel } from '../ui/ActionPanel'
 import { InfoPanel } from '../ui/InfoPanel'
+import { ensureAudioReady, playThock, playPlace, playDrop, playReveal } from '../audio/SoundEngine'
 
 const BOARD_ROWS = 4
 const BOARD_COLS = 3
@@ -196,12 +197,16 @@ export class BoardScene {
     const tile = this._raycastTile()
     if (tile !== this.hoveredTile) {
       if (this.hoveredTile) this.hoveredTile.setHovered(false)
-      if (tile) tile.setHovered(true)
+      if (tile && tile.state === 'empty') {
+        tile.setHovered(true)
+        playThock()
+      }
       this.hoveredTile = tile
     }
   }
 
   private _onPointerDown = (e: PointerEvent): void => {
+    ensureAudioReady()
     this._updatePointer(e)
     const tile = this._raycastTile()
     if (!tile) return
@@ -216,6 +221,7 @@ export class BoardScene {
     if (isDoubleClick) {
       // Double-click: instant deterministic action
       this._clearSelection()
+      playPlace()
       this._handleConfirm([tile.cellIndex], [1.0])
       return
     }
@@ -227,6 +233,7 @@ export class BoardScene {
     } else {
       this.selectedTiles.set(tile.cellIndex, 1)
       tile.setSelected(true)
+      playPlace()
     }
     this._syncSelectionUI()
   }
@@ -259,6 +266,14 @@ export class BoardScene {
     this._clearBoardFromScene()
     this.board = new BoardLayout3D(this.scene, rows, cols)
     this.outlineRender.invalidateMeshList()
+
+    // Wire up landing sounds on all tiles (drop = clack, rise = soft reveal)
+    for (const tile of this.board.allTiles()) {
+      tile.onDropLand = () => {
+        if (tile.stoneAnim === 'rise') playReveal()
+        else playDrop()
+      }
+    }
 
     const [cx, , cz] = boardCenter(rows, cols)
     const dist = 14
@@ -327,7 +342,12 @@ export class BoardScene {
     try {
       const complete = this.stratGen.submitActions(actions, probs)
       this._clearSelection()
-      this._updateStrategyView()
+      // Collision cells should rise (already there), not drop
+      const dropCells = new Set(actions)
+      if (this.stratGen.lastCollisionIndex !== null) {
+        dropCells.delete(this.stratGen.lastCollisionIndex)
+      }
+      this._updateStrategyView(dropCells)
       if (complete) this._showExportDialog()
     } catch (err) {
       console.error('Strategy action error:', err)
@@ -430,10 +450,11 @@ export class BoardScene {
     }
   }
 
-  private _updateStrategyView(): void {
+  /** @param playerActions cells the player just acted on (drop anim); others rise */
+  private _updateStrategyView(playerActions?: Set<number>): void {
     if (!this.stratGen) return
     const view = this.stratGen.boardView
-    this.board.applyView(view, this.stratGen.lastCollisionIndex)
+    this.board.applyView(view, this.stratGen.lastCollisionIndex, 'rise', playerActions)
 
     const { assigned, remaining } = this.stratGen.progress
     this.actionPanel.updateSelection(this.selectedTiles, this.stratGen.cols)

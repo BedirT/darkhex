@@ -9,7 +9,8 @@ import { StrategyGenerator } from '../strategy/StrategyGenerator'
 import { SetupPanel } from '../ui/SetupPanel'
 import { ActionPanel } from '../ui/ActionPanel'
 import { InfoPanel } from '../ui/InfoPanel'
-import { ensureAudioReady, playThock, playPlace, playDrop, playReveal, playVanish } from '../audio/SoundEngine'
+import { CompletionPanel } from '../ui/CompletionPanel'
+import { ensureAudioReady, playThock, playPlace, playDrop, playReveal, playVanish, playChime } from '../audio/SoundEngine'
 
 const BOARD_ROWS = 4
 const BOARD_COLS = 3
@@ -37,10 +38,12 @@ export class BoardScene {
 
   // Strategy mode
   private _setupOpen = false
+  private _completionOpen = false
   private stratGen: StrategyGenerator | null = null
   private setupPanel!: SetupPanel
   private actionPanel!: ActionPanel
   private infoPanel!: InfoPanel
+  private completionPanel!: CompletionPanel
   private selectedTiles: Map<number, number> = new Map() // cellIndex → 1 (tracked for selection)
   private probOverlay!: HTMLDivElement // container for probability labels
   private probLabels: Map<number, HTMLDivElement> = new Map()
@@ -113,6 +116,7 @@ export class BoardScene {
     this.setupPanel = new SetupPanel(this.container)
     this.actionPanel = new ActionPanel(this.container)
     this.infoPanel = new InfoPanel(this.container)
+    this.completionPanel = new CompletionPanel(this.container)
 
     // Probability overlay container (positioned over canvas)
     this.probOverlay = document.createElement('div')
@@ -239,7 +243,7 @@ export class BoardScene {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (this._setupOpen) return
+    if (this._setupOpen || this._completionOpen) return
     if (e.key === 'Escape') this._restartStrategyMode()
     if (e.key === 'Enter' && this.selectedTiles.size > 0) {
       const result = this.actionPanel.getActionProbs()
@@ -349,7 +353,7 @@ export class BoardScene {
         dropCells.delete(this.stratGen.lastCollisionIndex)
       }
       this._updateStrategyView(dropCells)
-      if (complete) this._showExportDialog()
+      if (complete) this._showCompletionFlow()
     } catch (err) {
       console.error('Strategy action error:', err)
     }
@@ -362,7 +366,7 @@ export class BoardScene {
       this._clearSelection()
       this._updateStrategyView()
       if (complete) {
-        this._showExportDialog()
+        this._showCompletionFlow()
       }
     } catch (err) {
       console.error('Strategy action error:', err)
@@ -469,7 +473,67 @@ export class BoardScene {
     })
   }
 
-  private _showExportDialog(): void {
+  private async _showCompletionFlow(): Promise<void> {
+    if (!this.stratGen) return
+
+    // Play celebration chime
+    playChime()
+    this.completionPanel.resetDownloaded()
+
+    // Loop: re-show completion modal if user cancels the setup dialog or dismisses
+    while (true) {
+      this._completionOpen = true
+      const { assigned } = this.stratGen!.progress
+      const action = await this.completionPanel.show({
+        player: this.stratGen!.player,
+        rows: this.stratGen!.rows,
+        cols: this.stratGen!.cols,
+        infoStates: assigned,
+      })
+      this._completionOpen = false
+
+      if (action === 'download') {
+        this._downloadPolicy()
+        // After download, re-show the modal so user can still start new
+        continue
+      } else if (action === 'new') {
+        // Try to start new — if user cancels setup, loop back to completion
+        this.actionPanel.hide()
+        this.infoPanel.hide()
+
+        this._setupOpen = true
+        const config = await this.setupPanel.show(true)
+        this._setupOpen = false
+
+        if (!config) {
+          // Cancelled — restore panels and re-show completion
+          this.actionPanel.show()
+          this.infoPanel.show()
+          continue
+        }
+
+        // New config chosen — tear down and start fresh
+        this._clearSelection()
+        for (const el of this.probLabels.values()) el.remove()
+        this.probLabels.clear()
+        this.stratGen = null
+
+        this._rebuildBoard(config.rows, config.cols)
+        const infoOps = await InfoStateOps.create(config.rows, config.cols)
+        this.stratGen = new StrategyGenerator(infoOps, config)
+        this.actionPanel.show()
+        this.infoPanel.show()
+        this._updateStrategyView()
+        return
+      } else {
+        // Dismissed — let user keep inspecting the completed board
+        this._completionOpen = false
+        return
+      }
+    }
+  }
+
+  private _downloadPolicy(): void {
     if (!this.stratGen) return
     const policy = this.stratGen.exportPolicy()
     const json = JSON.stringify(policy, null, 2)
@@ -479,7 +543,6 @@ export class BoardScene {
     a.href = url
     a.download = `policy_${this.stratGen.rows}x${this.stratGen.cols}_p${this.stratGen.player}.json`
     a.click()
-    // Defer revocation so the browser has time to start the download
     setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 

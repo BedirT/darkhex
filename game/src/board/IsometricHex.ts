@@ -98,36 +98,36 @@ export function boardCenter(rows: number, cols: number): [number, number, number
   return [(x0 + x1) / 2, 0, (z0 + z1) / 2]
 }
 
-// ── Palette — warm board-game colours with more saturation ──────────────────
+// ── Palette — soft pastels with a bit more life ─────────────────────────────
 
 export const PALETTE = {
-  bg:          0xb8daf5,       // slightly deeper sky blue
+  bg:          0xc2e1ff,
 
-  tileTop:     0xe0a8a0,       // warmer terracotta-rose (was grayish-pink)
-  tileSide:    0xc48878,       // richer clay side
-  tileDark:    0xa05848,       // deeper terracotta shadow
+  tileTop:     0xe0b8b8,       // softer pastel rose (was grayish #d5b7b7)
+  tileSide:    0xd09a9a,       // warmer rose side
+  tileDark:    0xa86868,
 
-  hoverTop:    0xecc0b8,       // warm highlight on hover
+  hoverTop:    0xeacece,       // gentle hover lift
 
-  blackTop:    0x3a4460,       // richer navy-slate
-  blackSide:   0x2a3148,       // deeper navy side
-  blackEdge:   0x0c0e14,
+  blackTop:    0x506080,       // more saturated slate-blue
+  blackSide:   0x3c4860,
+  blackEdge:   0x0c0e11,
 
-  whiteTop:    0xf0ece4,       // warm ivory (was cold gray-blue)
-  whiteSide:   0xd8d0c4,       // warm linen side
-  whiteHi:     0x8a8070,
+  whiteTop:    0xe8e0d8,       // warm cream-white (was cold #d6dae4)
+  whiteSide:   0xd0c8be,
+  whiteHi:     0x7b86a6,
 
-  edgeBlackTop:  0x3a4460,
-  edgeBlackSide: 0x2a3148,
-  edgeWhiteTop:  0xf0ece4,
-  edgeWhiteSide: 0xd8d0c4,
+  edgeBlackTop:  0x506080,
+  edgeBlackSide: 0x3c4860,
+  edgeWhiteTop:  0xe8e0d8,
+  edgeWhiteSide: 0xd0c8be,
 
-  lastTop:     0xd49888,       // warm recent-move highlight
-  selectedTop: 0x7cc47e,       // fresh green — selected tile
-  selectedSide:0x5ca860,
+  lastTop:     0xd8a8a8,       // soft rose for last move
+  selectedTop: 0x81c784,       // soft green — selected tile in strategy mode
+  selectedSide:0x66a869,
 
-  platform:    0xfaf5ef,       // cream platform (matches UI)
-  platformEdge:0xd5c8b8,      // warm edge
+  platform:    0xffffff,
+  platformEdge:0xcccccc,
 
-  outline:     0x3a2820,       // warm dark brown outlines (was cold gray)
+  outline:     0x2a2a30,
 } as const

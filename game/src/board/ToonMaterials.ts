@@ -4,7 +4,7 @@ import * as THREE from 'three'
 let _gradientMap: THREE.DataTexture | null = null
 export function gradientMap(): THREE.DataTexture {
   if (!_gradientMap) {
-    const colors = new Uint8Array([160, 220, 255])
+    const colors = new Uint8Array([100, 200, 255])
     _gradientMap = new THREE.DataTexture(colors, 3, 1, THREE.RedFormat)
     _gradientMap.needsUpdate = true
     _gradientMap.minFilter = THREE.NearestFilter

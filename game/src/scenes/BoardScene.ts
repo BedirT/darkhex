@@ -155,11 +155,11 @@ export class BoardScene {
   // ── Lights ──────────────────────────────────────────────────────────────
 
   private _setupLights(cx: number, cz: number): void {
-    // Warm ambient — enough to see side faces but let directional create shading
-    this.scene.add(new THREE.AmbientLight(0xfff8f0, 0.85))
+    // Strong neutral ambient — dominates so colors render close to their hex values
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.2))
 
-    // Stronger directional — drives toon shading steps and warm shadows
-    const key = new THREE.DirectionalLight(0xfff4e8, 0.7)
+    // Gentle directional — just enough to create soft shadows and slight shading
+    const key = new THREE.DirectionalLight(0xffffff, 0.4)
     key.position.set(cx + 6, 14, cz - 4)
     key.target.position.set(cx, 0, cz)
     key.castShadow = true

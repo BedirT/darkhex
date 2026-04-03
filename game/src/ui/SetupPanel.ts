@@ -82,7 +82,7 @@ export class SetupPanel {
             font-size: 15px; font-weight: 700; transition: all 0.15s;
             background: ${TEXT}; color: #fff; border: 2px solid ${TEXT};
           ">
-            <span style="width: 14px; height: 14px; border-radius: 50%; background: #3a4460; display: inline-block; border: 2px solid #2a3148;"></span>
+            <span style="width: 14px; height: 14px; border-radius: 50%; background: #506080; display: inline-block; border: 2px solid #3c4860;"></span>
             <input type="radio" name="sg-player" value="0" checked style="display: none;">
             Black
           </label>
@@ -92,7 +92,7 @@ export class SetupPanel {
             font-size: 15px; font-weight: 700; transition: all 0.15s;
             background: #fff; color: ${TEXT}; border: 2px solid ${MAUVE_LIGHT};
           ">
-            <span style="width: 14px; height: 14px; border-radius: 50%; background: #f0ece4; display: inline-block; border: 2px solid #d8d0c4;"></span>
+            <span style="width: 14px; height: 14px; border-radius: 50%; background: #e8e0d8; display: inline-block; border: 2px solid #d0c8be;"></span>
             <input type="radio" name="sg-player" value="1" style="display: none;">
             White
           </label>

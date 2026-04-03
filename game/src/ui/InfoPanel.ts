@@ -89,7 +89,7 @@ export class InfoPanel {
     isCollision: boolean
   }): void {
     const playerName = state.player === 0 ? 'Black' : 'White'
-    const playerColor = state.player === 0 ? '#3a4460' : MAUVE_DARK
+    const playerColor = state.player === 0 ? '#506080' : MAUVE_DARK
     this.titleEl.textContent = `Strategy: ${playerName}`
     this.titleEl.style.color = playerColor
 

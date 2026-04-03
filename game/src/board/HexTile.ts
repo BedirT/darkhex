@@ -78,6 +78,8 @@ export class HexTile3D {
   private _dropLanded = false        // true once landing triggers
   private _flipTimer = -1            // > 0 while tile flip is active
   private _flipPivot: THREE.Group | null = null  // pivot for flip rotation
+  private _vanishTimer = -1          // > 0 while vanish animation is active
+  private _vanishDur = 0.3           // per-stone vanish duration
 
   /** Called when the stone first hits the board (at the bounce point). */
   onDropLand: (() => void) | null = null
@@ -143,6 +145,17 @@ export class HexTile3D {
   /** Trigger a collision flash animation (amber flash for ~0.4s). */
   flashCollision(): void {
     this._collisionTimer = 0.4
+  }
+
+  /**
+   * Start a vanish animation: stone floats up + shrinks away.
+   * @param delay seconds before the animation starts (for staggering)
+   * @param dur how long the vanish takes once it starts
+   */
+  startVanish(delay: number, dur = 0.3): void {
+    if (!this.stoneGroup) return
+    this._vanishTimer = -delay  // negative = waiting for delay
+    this._vanishDur = dur
   }
 
   tickAnimation(dt: number): void {
@@ -248,6 +261,39 @@ export class HexTile3D {
         this.group.remove(this._flipPivot)
         this._flipPivot = null
         this._flipTimer = -1
+      }
+    }
+
+    // Vanish animation (stone floats up + shrinks away)
+    if (this._vanishTimer > -99 && this._vanishTimer < 100 && this.stoneGroup) {
+      this._vanishTimer += dt
+      if (this._vanishTimer >= 0) {
+        // Animation active
+        const t = Math.min(this._vanishTimer / this._vanishDur, 1)
+        // Ease-in quad: starts slow, accelerates away
+        const ease = t * t
+
+        // Float upward
+        this.stoneGroup.position.y = this._stoneRestY + ease * 1.0
+
+        // Shrink to nothing with slight acceleration
+        this.stoneGroup.scale.setScalar(Math.max(0, 1 - ease))
+
+        if (t >= 1) {
+          // Remove the stone and set state to empty
+          this.stoneGroup.traverse(obj => {
+            if (obj instanceof THREE.Mesh) {
+              const mat = obj.material
+              if (Array.isArray(mat)) mat.forEach(m => m.dispose())
+              else mat.dispose()
+            }
+          })
+          this.group.remove(this.stoneGroup)
+          this.stoneGroup = null
+          this._state = 'empty'
+          this._updateColors()
+          this._vanishTimer = -99  // done
+        }
       }
     }
 

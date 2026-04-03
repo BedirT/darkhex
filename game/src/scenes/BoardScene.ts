@@ -478,8 +478,9 @@ export class BoardScene {
 
     // Play celebration chime
     playChime()
+    this.completionPanel.resetDownloaded()
 
-    // Loop: re-show completion modal if user cancels the setup dialog
+    // Loop: re-show completion modal if user cancels the setup dialog or dismisses
     while (true) {
       this._completionOpen = true
       const { assigned } = this.stratGen!.progress
@@ -525,7 +526,9 @@ export class BoardScene {
         this._updateStrategyView()
         return
       } else {
-        return  // dismissed
+        // Dismissed — let user keep inspecting the completed board
+        this._completionOpen = false
+        return
       }
     }
   }

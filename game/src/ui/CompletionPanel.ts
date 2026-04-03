@@ -114,6 +114,19 @@ export class CompletionPanel {
 
     panel.appendChild(btnRow)
 
+    // ── Close / dismiss link ──────────────────────────────────────────
+    const closeLink = document.createElement('div')
+    closeLink.textContent = 'Keep inspecting the board'
+    closeLink.style.cssText = `
+      margin-top: 16px; font-size: 13px; font-weight: 600;
+      color: ${TEXT_MUTED}; cursor: pointer; text-decoration: underline;
+      text-underline-offset: 3px;
+    `
+    closeLink.addEventListener('mouseover', () => { closeLink.style.color = TEXT })
+    closeLink.addEventListener('mouseout', () => { closeLink.style.color = TEXT_MUTED })
+    closeLink.addEventListener('click', () => this._resolve('dismiss'))
+    panel.appendChild(closeLink)
+
     // ── Confirmation sub-panel (hidden by default) ──────────────────
     this.confirmEl = document.createElement('div')
     this.confirmEl.style.cssText = `
@@ -154,8 +167,13 @@ export class CompletionPanel {
     parent.appendChild(this.overlay)
   }
 
-  show(stats: CompletionStats): Promise<CompletionAction> {
+  /** Reset download tracking (call once when the strategy first completes). */
+  resetDownloaded(): void {
     this.downloaded = false
+  }
+
+  show(stats: CompletionStats): Promise<CompletionAction> {
+    // Don't reset downloaded here — it persists across re-shows
     this.confirmEl.style.display = 'none'
     // Update stats display
     const playerName = stats.player === 0 ? 'Black' : 'White'

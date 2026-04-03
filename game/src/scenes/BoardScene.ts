@@ -38,6 +38,7 @@ export class BoardScene {
 
   // Strategy mode
   private _setupOpen = false
+  private _completionOpen = false
   private stratGen: StrategyGenerator | null = null
   private setupPanel!: SetupPanel
   private actionPanel!: ActionPanel
@@ -242,7 +243,7 @@ export class BoardScene {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (this._setupOpen) return
+    if (this._setupOpen || this._completionOpen) return
     if (e.key === 'Escape') this._restartStrategyMode()
     if (e.key === 'Enter' && this.selectedTiles.size > 0) {
       const result = this.actionPanel.getActionProbs()
@@ -478,19 +479,54 @@ export class BoardScene {
     // Play celebration chime
     playChime()
 
-    // Show completion panel with stats
-    const { assigned } = this.stratGen.progress
-    const action = await this.completionPanel.show({
-      player: this.stratGen.player,
-      rows: this.stratGen.rows,
-      cols: this.stratGen.cols,
-      infoStates: assigned,
-    })
+    // Loop: re-show completion modal if user cancels the setup dialog
+    while (true) {
+      this._completionOpen = true
+      const { assigned } = this.stratGen!.progress
+      const action = await this.completionPanel.show({
+        player: this.stratGen!.player,
+        rows: this.stratGen!.rows,
+        cols: this.stratGen!.cols,
+        infoStates: assigned,
+      })
+      this._completionOpen = false
 
-    if (action === 'download') {
-      this._downloadPolicy()
-    } else if (action === 'new') {
-      this._restartStrategyMode()
+      if (action === 'download') {
+        this._downloadPolicy()
+        // After download, re-show the modal so user can still start new
+        continue
+      } else if (action === 'new') {
+        // Try to start new — if user cancels setup, loop back to completion
+        this.actionPanel.hide()
+        this.infoPanel.hide()
+
+        this._setupOpen = true
+        const config = await this.setupPanel.show(true)
+        this._setupOpen = false
+
+        if (!config) {
+          // Cancelled — restore panels and re-show completion
+          this.actionPanel.show()
+          this.infoPanel.show()
+          continue
+        }
+
+        // New config chosen — tear down and start fresh
+        this._clearSelection()
+        for (const el of this.probLabels.values()) el.remove()
+        this.probLabels.clear()
+        this.stratGen = null
+
+        this._rebuildBoard(config.rows, config.cols)
+        const infoOps = await InfoStateOps.create(config.rows, config.cols)
+        this.stratGen = new StrategyGenerator(infoOps, config)
+        this.actionPanel.show()
+        this.infoPanel.show()
+        this._updateStrategyView()
+        return
+      } else {
+        return  // dismissed
+      }
     }
   }
 

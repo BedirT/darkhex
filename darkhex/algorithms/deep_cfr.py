@@ -25,6 +25,40 @@ def _player_index(p: Player) -> int:
     return 0 if p == Player.Black else 1
 
 
+def resolve_device(device: str) -> torch.device:
+    """Resolve device string to torch.device, with auto-detection.
+
+    Args:
+        device: One of "auto", "cpu", "cuda", "mps", or any valid torch device string.
+
+    Returns:
+        Resolved torch.device. "auto" checks CUDA → MPS → CPU.
+
+    Raises:
+        ValueError: If an explicit backend is requested but unavailable.
+    """
+    if device == "auto":
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+    if device == "cuda" and not torch.cuda.is_available():
+        raise ValueError(
+            "device='cuda' requested but CUDA is not available. "
+            "Use 'cpu' or 'auto'."
+        )
+    if device == "mps" and (
+        not hasattr(torch.backends, "mps")
+        or not torch.backends.mps.is_available()
+    ):
+        raise ValueError(
+            "device='mps' requested but MPS is not available. "
+            "Use 'cpu' or 'auto'."
+        )
+    return torch.device(device)
+
+
 def encode_info_state(info_state_str: str, rows: int, cols: int) -> torch.Tensor:
     """Convert canonical info state string to a flat tensor.
 
@@ -184,6 +218,7 @@ class DeepCFRConfig:
     num_traversals: int = 375
     seed: int = 42
     reinitialize_advantage_networks: bool = True
+    device: str = "cpu"
 
 
 class DeepCFR:
@@ -202,13 +237,14 @@ class DeepCFR:
         self._n = cfg.rows * cfg.cols
         self._input_dim = 3 * self._n + 1
         self._iteration = 0
+        self._device = resolve_device(cfg.device)
 
         torch.manual_seed(cfg.seed)
         self._rng = np.random.default_rng(cfg.seed)
 
         # One advantage net per player, one shared strategy net
         self._advantage_nets = [
-            MLP(self._input_dim, cfg.hidden_sizes, self._n)
+            MLP(self._input_dim, cfg.hidden_sizes, self._n).to(self._device)
             for _ in range(2)
         ]
         self._strategy_net = MLP(
@@ -216,7 +252,7 @@ class DeepCFR:
             cfg.hidden_sizes,
             self._n,
             final_activation=nn.Softmax(dim=-1),
-        )
+        ).to(self._device)
 
         # Reservoir buffers: one advantage buffer per player, one strategy buffer
         # Use derived seeds for deterministic replay buffer sampling.
@@ -344,7 +380,7 @@ class DeepCFR:
         with torch.no_grad():
             x = encode_info_state(
                 canonical_str, self.cfg.rows, self.cfg.cols
-            ).unsqueeze(0)
+            ).unsqueeze(0).to(self._device)
             advantages = self._advantage_nets[player](x).squeeze(0)
 
         positive = {
@@ -383,6 +419,9 @@ class DeepCFR:
             states, iterations, targets = buf.sample(
                 self.cfg.batch_size_advantage
             )
+            states = states.to(self._device)
+            iterations = iterations.to(self._device)
+            targets = targets.to(self._device)
             # LCFR weighting: sqrt(t) trick -> MSE gives t*(pred-target)^2
             weights = torch.sqrt(iterations.float()).unsqueeze(1)
             preds = net(states)
@@ -409,6 +448,9 @@ class DeepCFR:
             states, iterations, targets = buf.sample(
                 self.cfg.batch_size_strategy
             )
+            states = states.to(self._device)
+            iterations = iterations.to(self._device)
+            targets = targets.to(self._device)
             weights = torch.sqrt(iterations.float()).unsqueeze(1)
             preds = self._strategy_net(states)
             loss = F.mse_loss(weights * preds, weights * targets)
@@ -480,7 +522,7 @@ class DeepCFR:
             with torch.no_grad():
                 x = encode_info_state(
                     canonical_str, self.cfg.rows, self.cfg.cols
-                ).unsqueeze(0)
+                ).unsqueeze(0).to(self._device)
                 probs = self._strategy_net(x).squeeze(0)
 
             # Renormalize over legal actions only — the softmax output

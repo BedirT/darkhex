@@ -25,6 +25,7 @@ from darkhex.algorithms.deep_cfr import (
     MLP,
     ReservoirBuffer,
     encode_info_state,
+    resolve_device,
     _player_index,
 )
 
@@ -53,9 +54,11 @@ class QBaseline:
         lr: float,
         buffer_size: int,
         seed: int,
+        device: torch.device | None = None,
     ) -> None:
+        self._device = device or torch.device("cpu")
         # Input: concatenated info states of both players
-        self.net = MLP(input_dim, hidden_sizes, output_dim)
+        self.net = MLP(input_dim, hidden_sizes, output_dim).to(self._device)
         self.buffer = ReservoirBuffer(buffer_size, seed=seed)
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr=lr)
         self._input_dim = input_dim
@@ -63,7 +66,7 @@ class QBaseline:
     def predict(self, joint_info_state: torch.Tensor) -> torch.Tensor:
         """Predict Q-values for all actions given joint info state."""
         with torch.no_grad():
-            return self.net(joint_info_state.unsqueeze(0)).squeeze(0)
+            return self.net(joint_info_state.unsqueeze(0).to(self._device)).squeeze(0)
 
     def train_step(
         self,
@@ -79,6 +82,8 @@ class QBaseline:
 
         for _ in range(num_steps):
             states, _, targets = self.buffer.sample(batch_size)
+            states = states.to(self._device)
+            targets = targets.to(self._device)
             preds = self.net(states)
             loss = F.mse_loss(preds, targets)
 
@@ -128,6 +133,7 @@ class DREAMConfig:
     baseline_buffer_size: int = 200_000
     baseline_train_steps: int = 500
     baseline_batch_size: int = 256
+    device: str = "cpu"
 
 
 # ---------------------------------------------------------------------------
@@ -155,20 +161,22 @@ class DREAM:
         self._n = cfg.rows * cfg.cols
         self._input_dim = 3 * self._n + 1
         self._iteration = 0
+        self._device = resolve_device(cfg.device)
 
         torch.manual_seed(cfg.seed)
         self._rng = np.random.default_rng(cfg.seed)
 
         # One advantage net per player, one shared strategy net
         self._advantage_nets = [
-            MLP(self._input_dim, cfg.hidden_sizes, self._n) for _ in range(2)
+            MLP(self._input_dim, cfg.hidden_sizes, self._n).to(self._device)
+            for _ in range(2)
         ]
         self._strategy_net = MLP(
             self._input_dim,
             cfg.hidden_sizes,
             self._n,
             final_activation=nn.Softmax(dim=-1),
-        )
+        ).to(self._device)
 
         # Reservoir buffers
         self._advantage_buffers = [
@@ -202,6 +210,7 @@ class DREAM:
                     lr=cfg.lr,
                     buffer_size=cfg.baseline_buffer_size,
                     seed=cfg.seed + 10 + p,
+                    device=self._device,
                 )
 
     @property
@@ -408,7 +417,7 @@ class DREAM:
         with torch.no_grad():
             x = encode_info_state(
                 canonical_str, self.cfg.rows, self.cfg.cols
-            ).unsqueeze(0)
+            ).unsqueeze(0).to(self._device)
             advantages = self._advantage_nets[player](x).squeeze(0)
 
         positive = {
@@ -449,6 +458,9 @@ class DREAM:
             states, iterations, targets = buf.sample(
                 self.cfg.batch_size_advantage
             )
+            states = states.to(self._device)
+            iterations = iterations.to(self._device)
+            targets = targets.to(self._device)
             weights = torch.sqrt(iterations.float()).unsqueeze(1)
             preds = net(states)
             loss = F.mse_loss(weights * preds, weights * targets)
@@ -480,6 +492,9 @@ class DREAM:
             states, iterations, raw_vals = buf.sample(
                 self.cfg.batch_size_strategy
             )
+            states = states.to(self._device)
+            iterations = iterations.to(self._device)
+            raw_vals = raw_vals.to(self._device)
             # Unpack: targets = sigma (first n columns), weights = last column
             targets = raw_vals[:, : self._n]
             strat_weights = raw_vals[:, self._n].unsqueeze(1)
@@ -563,7 +578,7 @@ class DREAM:
             with torch.no_grad():
                 x = encode_info_state(
                     canonical_str, self.cfg.rows, self.cfg.cols
-                ).unsqueeze(0)
+                ).unsqueeze(0).to(self._device)
                 probs = self._strategy_net(x).squeeze(0)
 
             # Renormalize over legal actions only

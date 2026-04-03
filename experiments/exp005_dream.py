@@ -18,11 +18,12 @@ import time
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from darkhex.algorithms.deep_cfr import resolve_device
 from darkhex.algorithms.dream import DREAM, DREAMConfig
-
 
 # ---------------------------------------------------------------------------
 # Per-board configurations
@@ -84,13 +85,14 @@ def run_experiment(
     board: str,
     use_baseline: bool = False,
     seed: int = 42,
+    device: str = "auto",
 ) -> list[dict]:
     """Run DREAM on the given board size and collect convergence data."""
 
     if board not in CONFIGS:
         raise ValueError(f"Unknown board: {board}. Choose from {list(CONFIGS)}")
 
-    params = {**CONFIGS[board], "seed": seed}
+    params = {**CONFIGS[board], "seed": seed, "device": device}
     if use_baseline:
         params.update(BASELINE_OVERRIDES)
 
@@ -106,6 +108,7 @@ def run_experiment(
     print(f"  epsilon: {cfg.epsilon}")
     print(f"  reinit_every: {cfg.reinit_every}")
     print(f"  baseline: {cfg.use_baseline}")
+    print(f"  device: {resolve_device(device)}")
     print(f"{'='*60}\n")
 
     total_time = 0.0
@@ -238,12 +241,16 @@ def main():
         help="Enable Q-baseline for variance reduction",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--device", type=str, default="auto",
+        help="Torch device: auto, cpu, cuda, mps (default: auto)",
+    )
     args = parser.parse_args()
 
     condition = "dream_bl" if args.baseline else "dream"
     output_dir = Path(f"results/exp005_dream/{args.board}_{condition}")
 
-    records = run_experiment(args.board, args.baseline, args.seed)
+    records = run_experiment(args.board, args.baseline, args.seed, args.device)
     save_results(records, output_dir, args.board)
 
 

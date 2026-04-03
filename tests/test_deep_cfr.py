@@ -14,6 +14,7 @@ from darkhex.algorithms.deep_cfr import (  # noqa: E402
     MLP,
     ReservoirBuffer,
     encode_info_state,
+    resolve_device,
 )  # noqa: I001
 
 
@@ -318,3 +319,57 @@ class TestDeepCFRIntegration:
         assert expl_50 < expl_10 + 0.1, (
             f"Exploitability didn't decrease: {expl_10:.4f} -> {expl_50:.4f}"
         )
+
+
+# ── Device placement tests ───────────────────────────────────────────────
+
+
+class TestDevicePlacement:
+    def test_resolve_device_cpu(self):
+        assert resolve_device("cpu") == torch.device("cpu")
+
+    def test_resolve_device_auto(self):
+        dev = resolve_device("auto")
+        assert isinstance(dev, torch.device)
+
+    def test_resolve_device_rejects_unavailable_cuda(self):
+        if torch.cuda.is_available():
+            pytest.skip("CUDA is available on this machine")
+        with pytest.raises(ValueError, match="CUDA is not available"):
+            resolve_device("cuda")
+
+    def test_resolve_device_rejects_unavailable_mps(self):
+        mps_available = (
+            hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        )
+        if mps_available:
+            pytest.skip("MPS is available on this machine")
+        with pytest.raises(ValueError, match="MPS is not available"):
+            resolve_device("mps")
+
+    def test_nets_on_device(self):
+        """All networks should be on the resolved device after init."""
+        cfg = DeepCFRConfig(rows=2, cols=2, device="cpu")
+        solver = DeepCFR(cfg)
+        for net in solver._advantage_nets:
+            for p in net.parameters():
+                assert p.device == torch.device("cpu")
+        for p in solver._strategy_net.parameters():
+            assert p.device == torch.device("cpu")
+
+    def test_2x2_runs_with_explicit_cpu(self):
+        """Deep CFR with explicit device='cpu' works end-to-end."""
+        cfg = DeepCFRConfig(
+            rows=2, cols=2,
+            hidden_sizes=(32,),
+            num_cfr_iters=3,
+            num_traversals=10,
+            advantage_train_steps=10,
+            strategy_train_steps=10,
+            buffer_size=1000,
+            device="cpu",
+        )
+        solver = DeepCFR(cfg)
+        solver.solve()
+        expl = solver.exploitability()
+        assert 0.0 <= expl <= 2.0

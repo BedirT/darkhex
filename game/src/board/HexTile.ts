@@ -164,33 +164,52 @@ export class HexTile3D {
       this._stoneDropTimer += dt
 
       if (this._stoneAnim === 'drop') {
-        // ── Drop from above with bounce ────────────────────────────────
+        // ── Phase 1: Materialize (0–0.15s) then Phase 2: Fall+bounce ───
+        const matDur = 0.30  // materialize duration (needs time for elastic bounce)
         const dropH = 1.2
-        const dur = 0.35
-        const t = Math.min(this._stoneDropTimer / dur, 1)
+        const fallDur = 0.35 // fall+bounce duration
+        const timer = this._stoneDropTimer
 
-        // Fire landing sound at first impact
-        if (t >= 0.5 && !this._dropLanded) {
-          this._dropLanded = true
-          this.onDropLand?.()
-        }
-
-        let y: number
-        if (t < 0.5) {
-          const ft = t / 0.5
-          y = this._stoneRestY + dropH * (1 - ft * ft)
-        } else if (t < 0.75) {
-          const bt = (t - 0.5) / 0.25
-          y = this._stoneRestY + dropH * 0.12 * Math.sin(bt * Math.PI)
+        if (timer < matDur) {
+          // Elastic scale-up: overshoots to ~1.3, bounces back, settles at 1.0
+          const mt = timer / matDur
+          // Elastic ease-out: decaying sine oscillation
+          const p = 0.3  // oscillation period
+          const s = p / 4
+          const elastic = Math.pow(2, -10 * mt) * Math.sin((mt - s) * (2 * Math.PI) / p) + 1
+          this.stoneGroup.scale.setScalar(Math.max(0, elastic))
+          // Stay in place at the top
+          this.stoneGroup.position.y = this._stoneRestY + dropH
         } else {
-          const bt = (t - 0.75) / 0.25
-          y = this._stoneRestY + dropH * 0.03 * Math.sin(bt * Math.PI)
-        }
-        this.stoneGroup.position.y = y
+          // Full scale
+          this.stoneGroup.scale.setScalar(1)
 
-        if (t >= 1) {
-          this.stoneGroup.position.y = this._stoneRestY
-          this._stoneDropTimer = -1
+          const ft = Math.min((timer - matDur) / fallDur, 1)
+
+          // Fire landing sound at first impact
+          if (ft >= 0.5 && !this._dropLanded) {
+            this._dropLanded = true
+            this.onDropLand?.()
+          }
+
+          let y: number
+          if (ft < 0.5) {
+            const f = ft / 0.5
+            y = this._stoneRestY + dropH * (1 - f * f)
+          } else if (ft < 0.75) {
+            const bt = (ft - 0.5) / 0.25
+            y = this._stoneRestY + dropH * 0.12 * Math.sin(bt * Math.PI)
+          } else {
+            const bt = (ft - 0.75) / 0.25
+            y = this._stoneRestY + dropH * 0.03 * Math.sin(bt * Math.PI)
+          }
+          this.stoneGroup.position.y = y
+
+          if (ft >= 1) {
+            this.stoneGroup.position.y = this._stoneRestY
+            this.stoneGroup.scale.setScalar(1)
+            this._stoneDropTimer = -1
+          }
         }
 
       }
@@ -303,7 +322,7 @@ export class HexTile3D {
     if (anim === 'drop') {
       // ── Drop from above — player's action ────────────────────────────
       this.stoneGroup.position.set(0, this._stoneRestY + 1.2, 0)
-      this.stoneGroup.scale.setScalar(1)
+      this.stoneGroup.scale.setScalar(0.01)  // materializes from nothing
       this._stoneDropTimer = 0.001
       this._stoneAnim = 'drop'
       this._dropLanded = false

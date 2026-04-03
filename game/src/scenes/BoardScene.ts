@@ -35,6 +35,7 @@ export class BoardScene {
   private _rafId = 0
 
   // Strategy mode
+  private _setupOpen = false
   private stratGen: StrategyGenerator | null = null
   private setupPanel!: SetupPanel
   private actionPanel!: ActionPanel
@@ -231,7 +232,7 @@ export class BoardScene {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') this._restartStrategyMode()
+    if (e.key === 'Escape' && !this._setupOpen) this._restartStrategyMode()
     if (e.key === 'Enter' && this.selectedTiles.size > 0) {
       const result = this.actionPanel.getActionProbs()
       if (result) this._handleConfirm(result.actions, result.probs)
@@ -266,8 +267,10 @@ export class BoardScene {
     this.controls.update()
   }
 
-  private async _enterStrategyMode(): Promise<void> {
-    const config = await this.setupPanel.show()
+  private async _enterStrategyMode(cancellable = false): Promise<void> {
+    this._setupOpen = true
+    const config = await this.setupPanel.show(cancellable)
+    this._setupOpen = false
     if (!config) return
 
     // Rebuild board for the requested dimensions
@@ -281,16 +284,40 @@ export class BoardScene {
     this._updateStrategyView()
   }
 
-  /** Escape: tear down current strategy and re-open setup panel. */
-  private _restartStrategyMode(): void {
+  /** Escape: show setup panel; cancel returns to current strategy. */
+  private async _restartStrategyMode(): Promise<void> {
+    const hadStrategy = this.stratGen !== null
+
+    // Hide panels while setup is showing
+    this.actionPanel.hide()
+    this.infoPanel.hide()
+
+    this._setupOpen = true
+    const config = await this.setupPanel.show(hadStrategy)
+    this._setupOpen = false
+    if (!config) {
+      // User cancelled — restore previous strategy view if one exists
+      if (hadStrategy) {
+        this.actionPanel.show()
+        this.infoPanel.show()
+      }
+      return
+    }
+
+    // Tear down old strategy and start fresh
     this._clearSelection()
     for (const el of this.probLabels.values()) el.remove()
     this.probLabels.clear()
     this.stratGen = null
-    this.actionPanel.hide()
-    this.infoPanel.hide()
 
-    this._enterStrategyMode()
+    this._rebuildBoard(config.rows, config.cols)
+
+    const infoOps = await InfoStateOps.create(config.rows, config.cols)
+    this.stratGen = new StrategyGenerator(infoOps, config)
+
+    this.actionPanel.show()
+    this.infoPanel.show()
+    this._updateStrategyView()
   }
 
   /** Confirm selected actions with given probabilities. */

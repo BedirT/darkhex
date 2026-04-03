@@ -17,6 +17,7 @@ const RADIUS = '14px'
  */
 export class SetupPanel {
   private overlay: HTMLDivElement
+  private cancelBtn: HTMLButtonElement
   private resolve: ((config: StrategyConfig | null) => void) | null = null
 
   constructor(parent: HTMLElement) {
@@ -160,7 +161,8 @@ export class SetupPanel {
 
     // ── Button interactions ──────────────────────────────────────────────
     const startBtn = panel.querySelector('#sg-start') as HTMLButtonElement
-    const cancelBtn = panel.querySelector('#sg-cancel') as HTMLButtonElement
+    this.cancelBtn = panel.querySelector('#sg-cancel') as HTMLButtonElement
+    const cancelBtn = this.cancelBtn
 
     startBtn.addEventListener('mousedown', () => {
       startBtn.style.transform = 'translateY(2px)'
@@ -183,7 +185,8 @@ export class SetupPanel {
     cancelBtn.addEventListener('click', () => this._cancel())
   }
 
-  show(): Promise<StrategyConfig | null> {
+  show(cancellable = false): Promise<StrategyConfig | null> {
+    this.cancelBtn.style.display = cancellable ? '' : 'none'
     this.overlay.style.display = 'flex'
     return new Promise((resolve) => { this.resolve = resolve })
   }

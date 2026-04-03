@@ -232,7 +232,8 @@ export class BoardScene {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' && !this._setupOpen) this._restartStrategyMode()
+    if (this._setupOpen) return
+    if (e.key === 'Escape') this._restartStrategyMode()
     if (e.key === 'Enter' && this.selectedTiles.size > 0) {
       const result = this.actionPanel.getActionProbs()
       if (result) this._handleConfirm(result.actions, result.probs)
@@ -442,6 +443,7 @@ export class BoardScene {
       remaining,
       player: this.stratGen.player,
       isCollision: this.stratGen.lastCollisionIndex !== null,
+      perfectRecall: this.stratGen.perfectRecall,
     })
   }
 

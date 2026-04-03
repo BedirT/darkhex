@@ -17,6 +17,7 @@ export class InfoPanel {
   private barEl: HTMLDivElement
   private barLabel: HTMLSpanElement
   private collisionEl: HTMLSpanElement
+  private historyEl: HTMLDivElement
 
   constructor(parent: HTMLElement) {
     this.container = document.createElement('div')
@@ -26,7 +27,7 @@ export class InfoPanel {
       padding: 12px 20px; z-index: 50;
       font-family: ${FONT}; color: ${TEXT};
       box-shadow: ${SHADOW};
-      align-items: center; gap: 16px;
+      align-items: center; gap: 16px; flex-wrap: wrap;
     `
 
     // ── Title ──────────────────────────────────────────────────────────
@@ -78,6 +79,16 @@ export class InfoPanel {
     exitHint.textContent = 'Esc = restart'
     this.container.appendChild(exitHint)
 
+    // ── History line (perfect recall only) ─────────────────────────────
+    this.historyEl = document.createElement('div')
+    this.historyEl.style.cssText = `
+      display: none; width: 100%;
+      font-size: 13px; font-weight: 600; color: ${TEXT_MUTED};
+      padding-top: 6px; border-top: 1px solid ${MAUVE_LIGHT};
+      margin-top: 2px; overflow-x: auto; white-space: nowrap;
+    `
+    this.container.appendChild(this.historyEl)
+
     parent.appendChild(this.container)
   }
 
@@ -87,6 +98,7 @@ export class InfoPanel {
     remaining: number
     player: number
     isCollision: boolean
+    perfectRecall: boolean
   }): void {
     const playerName = state.player === 0 ? 'Black' : 'White'
     const playerColor = state.player === 0 ? '#506080' : MAUVE_DARK
@@ -99,6 +111,21 @@ export class InfoPanel {
     this.barLabel.textContent = `${state.assigned} / ${total}`
 
     this.collisionEl.style.display = state.isCollision ? 'inline' : 'none'
+
+    // Show action history for perfect recall (third line of info state string)
+    if (state.perfectRecall) {
+      const lines = state.infoState.split('\n')
+      const historyLine = lines.length >= 3 ? lines[2].trim() : ''
+      if (historyLine) {
+        this.historyEl.textContent = `History: ${historyLine}`
+        this.historyEl.style.display = 'block'
+      } else {
+        this.historyEl.textContent = 'History: (start)'
+        this.historyEl.style.display = 'block'
+      }
+    } else {
+      this.historyEl.style.display = 'none'
+    }
   }
 
   show(): void {

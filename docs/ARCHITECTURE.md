@@ -283,6 +283,8 @@ Ported from the old Python/Tkinter `darkhex/gui/` PolGen tool. Lets researchers 
 | Board-centric UX | Click tiles, overlays on 3D board | Researchers see the board as the player sees it, not an abstract tree |
 
 **Planned features**:
+- Strategy investigation screen (browse completed strategy: step through info states, view assigned probabilities on the board, navigate the decision tree)
+- Strategy diagram export (generate visual game tree / strategy diagrams as SVG/PDF, similar to thesis figures — show info states, branching, and probability assignments)
 - Strategy walker (step through MCCFR policies)
 - Game tree exploration
 - Live MCCFR convergence plots

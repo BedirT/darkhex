@@ -5,35 +5,12 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 
 ## Last Session
 - Date: 2026-04-02
-- EXP-004: Deep CFR prototype (Brown et al., ICML 2019)
-  - Implemented full Deep CFR: External Sampling + neural advantage/strategy nets
-  - 2x2 CDH: expl 1.0 → 0.018 in 100 CFR iterations (94s, K=200)
-  - 3x2 CDH: expl 1.0 → 0.045 in 50 CFR iterations (324s, K=200)
-  - 3x3 CDH: expl 1.0 → 0.60 in 30 CFR iterations (668s, K=5 — needs more K)
-  - 4x3 CDH: External Sampling infeasible (single traversal >30s, exponential in branching)
-  - Fixed LCFR iteration counting: 1-based, per outer CFR iter (was per-player, starting at 0)
-  - Fixed: seeded reservoir buffers, strategy renormalization, 3x3 experiment config
-  - Added torch to dev deps so make check always runs Deep CFR tests
-  - Optimized extract_strategy: game state memoization reduces 3x3 eval from >10min to 5.4s
-  - Key finding: neural approximation converges well; bottleneck is ES traversal, not NNs
-  - Next: implement DREAM (Outcome Sampling variant) for 4x3+
-- Exposed canonical_info_state() in Python bindings for isomorphic reduction
-- Added PyTorch as optional dependency (neural group)
-- 100 tests (54 Rust + 22 Deep CFR + 78 Python total), all passing
-
-## Previous Session
-- Date: 2026-03-30
-- EXP-003 v3: MCCFR on 4x3 CDH — 1B iterations (thesis baseline)
-  - Exploitability: 0.999 (1M) → 0.985 (100M) → 0.989 (1B) — plateaus
-  - 175,825 canonical info states (95.5% of ~184k)
-  - Throughput: 113–127k iter/s, 1B solve ~2.2h
-  - Gap vs thesis (0.002) is metric difference (clairvoyant BR vs Ab-BR)
-- Fixed pONE: AND-OR belief-space search replaces per-config minimax
-  - Disabled pONE pruning in MCCFR (causes missing strategies in subtrees)
-  - PoneDb correct for analysis: 57,485 states on 4x3
-- Solver checkpointing: save/load/resume via bincode serialization (~16 MB)
-- SIP/SIP+ cherry-picked (Rust, thesis §4.4–4.5) — no effect on current strategy
-- Thesis discovery: 0.002 = 1B iters + SIP+ + Ab-BR (weaker metric than our BR)
+- Implemented thesis-style Ab-BR + Deep CFR prototype
+  - Ab-BR: three-phase algorithm matching thesis code (reach collection → bucketing → reach-weighted DFS)
+  - 4x3 @ 1B: Ab-BR=0.722, clairvoyant=0.989, thesis (SIP+)=0.002
+  - Gap vs thesis: raw MCCFR gives 0.722; need SIP+ post-processing for 0.002
+  - Deep CFR: 2x2 expl 0.018, 3x2 expl 0.045, 3x3 expl 0.60, 4x3 ES infeasible
+  - Next: DREAM (OS variant) for 4x3+, SIP+ → Ab-BR pipeline
 
 ## Completed
 - [x] Rust game engine: HexBoard (union-find), DarkHexState (CDH/ADH/NDH/FDH)
@@ -65,17 +42,21 @@ Modernize codebase and produce publishable paper (target: summer 2026)
 - [x] pONE MCCFR pruning disabled (causes missing strategies in subtrees)
 - [x] SIP/SIP+ policy simplification (Rust, thesis §4.4–4.5)
 - [x] Solver checkpointing: save/load/resume via bincode (~16 MB for 4x3)
+- [x] Abstract Best Response (Ab-BR) — Rust + PyO3, thesis §4 three-phase algorithm
+- [x] Ab-BR verified on 4x3 @ 1B: 0.722 (vs clairvoyant 0.989, thesis 0.002 with SIP+)
+- [x] EXP-004 prepared: Ab-BR vs clairvoyant comparison, 4x3 CDH to 10B
 
 ## Open PR
 - #18: merged (feature/outcome-sampling → re-dev)
 
 ## Up Next
+- [ ] Apply SIP/SIP+ to 1B strategy, then compute Ab-BR (thesis pipeline: MCCFR → SIP+ → Ab-BR)
 - [ ] Implement DREAM (Outcome Sampling Deep CFR) for 4x3+ boards
-- [ ] Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
-- [ ] Run 10B iterations (resume from 1B checkpoint)
-- [ ] PR: merge experiment/exp003-4x3-mccfr → re-dev
+- [ ] Run EXP-004: 10B iterations with dual Ab-BR + clairvoyant metrics
+- [ ] Optimize Ab-BR Phase 1 — opponent node memoization or DAG-based reach propagation
 
 ## Decisions Made
+- Ab-BR is a heuristic, NOT a guaranteed bound on clairvoyant BR — can be higher or lower (2026-04-01)
 - Clairvoyant BR (per-state optimal) for exploitability — upper bound, tight for converged strategies (2026-03-29)
 - CDH default, all 4 variants supported (2026-03-28)
 - External → Outcome Sampling (External too slow for 3x3) (2026-03-28)

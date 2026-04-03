@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { HexTile3D, type TileState } from './HexTile'
-import { gridToWorld, boardCenter, HEX, PALETTE } from './IsometricHex'
+import { HexTile3D, type TileState, type StoneAnim } from './HexTile'
+import { gridToWorld, HEX, PALETTE } from './IsometricHex'
 import { toonMat } from './ToonMaterials'
 
 // ── Edge piece neighbor offsets per edge index ────────────────────────────────
@@ -141,9 +141,6 @@ export class BoardLayout3D {
 
     // Win-condition edge pieces (chevron bands along each border)
     this._buildEdgePieces(scene)
-
-    // Cream platform base
-    this._buildPlatform(scene, rows, cols)
   }
 
   // ── Tile accessors ────────────────────────────────────────────────────────
@@ -180,15 +177,57 @@ export class BoardLayout3D {
    * Render from an imperfect-information view array (strategy mode).
    * Same format as applyBoard but with optional collision highlight.
    */
-  applyView(view: Int8Array, collisionIndex: number | null = null): void {
+  applyView(
+    view: Int8Array,
+    collisionIndex: number | null = null,
+    defaultAnim: StoneAnim = 'rise',
+    dropOverrides?: Set<number>,
+  ): void {
+    // First pass: collect tiles that are losing their stone (occupied → empty)
+    const vanishing: HexTile3D[] = []
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const idx = r * this.cols + c
         const cell = view[idx]
-        const state: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
-        this.tiles[r][c].setState(state, false)
+        const newState: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
+        const tile = this.tiles[r][c]
+
+        if (tile.state !== 'empty' && newState === 'empty') {
+          vanishing.push(tile)
+        }
+      }
+    }
+
+    // Stagger vanish: accelerating delays (first slow, last fast)
+    // Delay formula: quadratic spacing so gaps shrink toward the end
+    const vanishCount = vanishing.length
+    if (vanishCount > 0) {
+      const totalStagger = Math.min(vanishCount * 0.08, 0.5) // cap total stagger
+      for (let i = 0; i < vanishCount; i++) {
+        // Quadratic: early stones get more time, later ones are rapid
+        const frac = vanishCount > 1 ? i / (vanishCount - 1) : 0
+        const delay = totalStagger * (1 - (1 - frac) ** 2)
+        // Stones later in the sequence also vanish faster
+        const dur = 0.3 - 0.1 * frac // 0.3s → 0.2s
+        vanishing[i].startVanish(delay, dur)
+      }
+    }
+
+    // Second pass: apply new states for non-vanishing tiles
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const idx = r * this.cols + c
+        const cell = view[idx]
+        const newState: TileState = cell === 1 ? 'black' : cell === 2 ? 'white' : 'empty'
+        const tile = this.tiles[r][c]
+
+        // Skip tiles that are vanishing — they'll clean themselves up
+        if (tile.state !== 'empty' && newState === 'empty') continue
+
+        const anim = dropOverrides?.has(idx) ? 'drop' as StoneAnim : defaultAnim
+        tile.setState(newState, false, anim)
         if (idx === collisionIndex) {
-          this.tiles[r][c].flashCollision()
+          tile.flashCollision()
         }
       }
     }
@@ -277,33 +316,4 @@ export class BoardLayout3D {
     }
   }
 
-  // ── Platform base ─────────────────────────────────────────────────────────
-
-  private _buildPlatform(scene: THREE.Scene, rows: number, cols: number): void {
-    const [cx, , cz] = boardCenter(rows, cols)
-
-    let minX = Infinity, maxX = -Infinity
-    let minZ = Infinity, maxZ = -Infinity
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const [x, z] = gridToWorld(r, c)
-        minX = Math.min(minX, x)
-        maxX = Math.max(maxX, x)
-        minZ = Math.min(minZ, z)
-        maxZ = Math.max(maxZ, z)
-      }
-    }
-    const pad = HEX.R * 2.2
-    const pw = (maxX - minX) + pad * 2
-    const ph = (maxZ - minZ) + pad * 2
-    const platformH = 0.5
-
-    const geo = new THREE.BoxGeometry(pw, platformH, ph, 1, 1, 1)
-    const topMat = new THREE.MeshToonMaterial({ color: PALETTE.platform })
-    const platform = new THREE.Mesh(geo, topMat)
-    platform.position.set(cx, -HEX.HEIGHT - platformH / 2 - 0.02, cz)
-    platform.castShadow = true
-    platform.receiveShadow = true
-    scene.add(platform)
-  }
 }

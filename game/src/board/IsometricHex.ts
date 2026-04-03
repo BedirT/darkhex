@@ -98,32 +98,32 @@ export function boardCenter(rows: number, cols: number): [number, number, number
   return [(x0 + x1) / 2, 0, (z0 + z1) / 2]
 }
 
-// ── Palette — exact values from the reference SVG ───────────────────────────
+// ── Palette — soft pastels with a bit more life ─────────────────────────────
 
 export const PALETTE = {
   bg:          0xc2e1ff,
 
-  tileTop:     0xd5b7b7,
-  tileSide:    0xc29797,
-  tileDark:    0x995a5a,
+  tileTop:     0xe0b8b8,       // softer pastel rose (was grayish #d5b7b7)
+  tileSide:    0xd09a9a,       // warmer rose side
+  tileDark:    0xa86868,
 
-  hoverTop:    0xe0caca,
+  hoverTop:    0xeacece,       // gentle hover lift
 
-  blackTop:    0x4c556b,
-  blackSide:   0x373d4d,
+  blackTop:    0x506080,       // more saturated slate-blue
+  blackSide:   0x3c4860,
   blackEdge:   0x0c0e11,
 
-  whiteTop:    0xd6dae4,
-  whiteSide:   0xb8becf,
+  whiteTop:    0xe8e0d8,       // warm cream-white (was cold #d6dae4)
+  whiteSide:   0xd0c8be,
   whiteHi:     0x7b86a6,
 
-  edgeBlackTop:  0x4c556b,
-  edgeBlackSide: 0x373d4d,
-  edgeWhiteTop:  0xd6dae4,
-  edgeWhiteSide: 0xb8becf,
+  edgeBlackTop:  0x506080,
+  edgeBlackSide: 0x3c4860,
+  edgeWhiteTop:  0xe8e0d8,
+  edgeWhiteSide: 0xd0c8be,
 
-  lastTop:     0xccaaaa,
-  selectedTop: 0x81c784,   // soft green — selected tile in strategy mode
+  lastTop:     0xd8a8a8,       // soft rose for last move
+  selectedTop: 0x81c784,       // soft green — selected tile in strategy mode
   selectedSide:0x66a869,
 
   platform:    0xffffff,

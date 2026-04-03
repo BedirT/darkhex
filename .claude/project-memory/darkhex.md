@@ -26,7 +26,8 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - **P1: NFSP implementation** — User's best thesis results were with NFSP, not CFR variants
 - Scale ESCHER 4x3 with GPU + more traversals (K=5000+, 200+ iters)
 - Write ESCHER tests (test_escher.py) and experiment harness (exp006_escher.py)
-- Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
+- Apply SIP/SIP+ to 1B strategy, then compute Ab-BR (thesis pipeline)
+- EXP-004: Run Ab-BR vs clairvoyant comparison on 4x3 CDH to 10B iterations
 
 ## Completed Experiments
 - EXP-001: MCCFR convergence verification (done)
@@ -42,15 +43,15 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - ESCHER 2x2 CDH: exploitability 1.0 → **0.005** in 30 iters (23s)
 - ESCHER eliminates IS weights entirely; regret variance ~1e-1 vs DREAM's ~1e8 on DH4
 - DREAM implemented but OS variance too high for 3x3+: 3x3 expl stuck at 0.953
-- DREAM 2x2 CDH: expl 0.008 (OK), 3x2: 0.197, 3x3: 0.953 (bad)
 - Deep CFR (ES): 2x2 (expl 0.018), 3x2 (expl 0.045), 4x3 infeasible
+- Ab-BR implemented: thesis three-phase algorithm (reach collection → bucketing → reach-weighted DFS)
+  - 4x3 @ 1B: Ab-BR=0.722, clairvoyant=0.989, thesis (SIP+)=0.002
 - Code reviewed by internal agent + Codex; multiple correctness bugs caught and fixed
-- ESCHER 4x3 experiment running — the decisive test
+- 122+ tests passing (54 Rust + 68 Python)
 
 ## Previous Results (2026-03-30)
-- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings (2x2: 42→22, 3x2: 410→~205)
-- pONE belief-space precomputation: probability-1 win state pruning (opt-in, CDH only)
-- SIP/SIP+ policy simplification (Rust, thesis §4.4-4.5)
+- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings
+- pONE belief-space precomputation, SIP/SIP+ policy simplification
 - Exploitability / best response: clairvoyant upper bound, memoized DFS
 - 2x2 MCCFR convergence verified: exploitability 0.55 → 0.02 at 50k iters
 - Ground truth: 2x2=42 (22 canonical), 3x3=12,556, 4x3=367,919 (~184k canonical)

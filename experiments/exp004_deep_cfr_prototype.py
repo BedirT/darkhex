@@ -23,7 +23,7 @@ import sys
 import time
 from pathlib import Path
 
-from darkhex.algorithms.deep_cfr import DeepCFR, DeepCFRConfig
+from darkhex.algorithms.deep_cfr import DeepCFR, DeepCFRConfig, resolve_device
 
 RESULTS_DIR = Path("results/exp004_deep_cfr")
 
@@ -118,6 +118,7 @@ def run_experiment(
     num_cfr_iters: int,
     num_traversals: int | None,
     seed: int,
+    device: str = "auto",
 ) -> None:
     board_cfg = dict(CONFIGS[board])  # copy to avoid mutating module-level default
     if num_traversals is not None:
@@ -126,11 +127,13 @@ def run_experiment(
     cfg = DeepCFRConfig(
         num_cfr_iters=1,  # we iterate manually
         seed=seed,
+        device=device,
         **board_cfg,
     )
 
     print(f"=== EXP-004: Deep CFR on {board} CDH ===")
     print(f"Config: rows={cfg.rows} cols={cfg.cols} seed={cfg.seed}")
+    print(f"  device={resolve_device(device)}")
     print(f"  hidden_sizes={cfg.hidden_sizes}")
     print(f"  traversals/iter={cfg.num_traversals}")
     print(f"  advantage_steps={cfg.advantage_train_steps}")
@@ -207,6 +210,7 @@ def run_experiment(
             "buffer_size": cfg.buffer_size,
             "num_cfr_iters": num_cfr_iters,
             "seed": cfg.seed,
+            "device": str(resolve_device(device)),
         },
         "total_time_s": round(cumulative_time, 1),
         "final_exploitability": records[-1]["exploitability"] if records else None,
@@ -276,6 +280,10 @@ def main() -> None:
         help="Traversals per player per CFR iteration",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--device", type=str, default="auto",
+        help="Torch device: auto, cpu, cuda, mps (default: auto)",
+    )
     args = parser.parse_args()
 
     default_iters = {"2x2": 100, "3x2": 50, "3x3": 30, "4x3": 200}
@@ -285,7 +293,7 @@ def main() -> None:
     if args.board != "2x2":
         sanity_check_2x2()
 
-    run_experiment(args.board, num_iters, args.traversals, args.seed)
+    run_experiment(args.board, num_iters, args.traversals, args.seed, args.device)
 
 
 if __name__ == "__main__":

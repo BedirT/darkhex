@@ -7,6 +7,7 @@ torch = pytest.importorskip("torch")
 nn = torch.nn
 
 from darkhex._engine import DarkHexState, Player  # noqa: E402
+
 from darkhex.algorithms.deep_cfr import (  # noqa: E402
     MLP,
     ReservoirBuffer,
@@ -17,7 +18,6 @@ from darkhex.algorithms.dream import (  # noqa: E402
     DREAMConfig,
     QBaseline,
 )
-
 
 # ── Shared component tests (verify imports work) ─────────────────────────
 
@@ -338,3 +338,66 @@ class TestDREAMIntegration:
         assert expl_50 < expl_10 + 0.1, (
             f"Exploitability didn't decrease: {expl_10:.4f} -> {expl_50:.4f}"
         )
+
+
+# ── Device placement tests ───────────────────────────────────────────────
+
+
+class TestDevicePlacement:
+    def test_dream_nets_on_device(self):
+        cfg = DREAMConfig(rows=2, cols=2, device="cpu")
+        solver = DREAM(cfg)
+        for net in solver._advantage_nets:
+            for p in net.parameters():
+                assert p.device == torch.device("cpu")
+        for p in solver._strategy_net.parameters():
+            assert p.device == torch.device("cpu")
+
+    def test_baseline_nets_on_device(self):
+        cfg = DREAMConfig(
+            rows=2, cols=2, use_baseline=True, device="cpu",
+        )
+        solver = DREAM(cfg)
+        for bl in solver._baselines:
+            assert bl is not None
+            for p in bl.net.parameters():
+                assert p.device == torch.device("cpu")
+
+    def test_2x2_runs_with_explicit_cpu(self):
+        cfg = DREAMConfig(
+            rows=2, cols=2,
+            hidden_sizes=(32,),
+            num_cfr_iters=3,
+            num_traversals=50,
+            advantage_train_steps=10,
+            strategy_train_steps=10,
+            buffer_size=1000,
+            reinit_every=2,
+            device="cpu",
+        )
+        solver = DREAM(cfg)
+        solver.solve()
+        expl = solver.exploitability()
+        assert 0.0 <= expl <= 2.0
+
+    def test_2x2_baseline_with_explicit_cpu(self):
+        cfg = DREAMConfig(
+            rows=2, cols=2,
+            hidden_sizes=(32,),
+            num_cfr_iters=3,
+            num_traversals=50,
+            advantage_train_steps=10,
+            strategy_train_steps=10,
+            buffer_size=1000,
+            reinit_every=2,
+            use_baseline=True,
+            baseline_hidden_sizes=(32,),
+            baseline_buffer_size=500,
+            baseline_train_steps=10,
+            baseline_batch_size=16,
+            device="cpu",
+        )
+        solver = DREAM(cfg)
+        solver.solve()
+        expl = solver.exploitability()
+        assert 0.0 <= expl <= 2.0

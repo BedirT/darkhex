@@ -25,6 +25,7 @@ from darkhex.algorithms.deep_cfr import (
     MLP,
     ReservoirBuffer,
     encode_info_state,
+    resolve_device,
     _player_index,
 )
 
@@ -67,6 +68,7 @@ class ESCHERConfig:
     num_iters: int = 100
 
     seed: int = 42
+    device: str = "cpu"
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +99,7 @@ class ESCHER:
         self._obs_dim = 3 * self._n + 1  # single-player info state
         self._history_dim = 2 * self._obs_dim  # both players' info states
         self._iteration = 0
+        self._device = resolve_device(cfg.device)
 
         torch.manual_seed(cfg.seed)
         self._rng = np.random.default_rng(cfg.seed)
@@ -104,20 +107,20 @@ class ESCHER:
         # Value networks: predict V(h) from history (per player)
         # Single scalar output — state value, not per-action
         self._value_nets = [
-            MLP(self._history_dim, cfg.value_hidden, 1)
+            MLP(self._history_dim, cfg.value_hidden, 1).to(self._device)
             for _ in range(2)
         ]
 
         # Regret networks: predict regret from info state (per player)
         self._regret_nets = [
-            MLP(self._obs_dim, cfg.regret_hidden, self._n)
+            MLP(self._obs_dim, cfg.regret_hidden, self._n).to(self._device)
             for _ in range(2)
         ]
 
         # Average policy network: shared
         self._policy_net = MLP(
             self._obs_dim, cfg.policy_hidden, self._n,
-        )
+        ).to(self._device)
 
         # Buffers
         self._value_buffers = [
@@ -307,15 +310,21 @@ class ESCHER:
         """
         actions = state.legal_actions()
         num_actions = len(actions)
-        q_values = np.zeros(num_actions, dtype=np.float64)
+
+        # Batch all child histories into a single forward pass
+        histories = []
+        for a in actions:
+            child = state.copy()
+            child.apply_action(a)
+            histories.append(self._encode_history(child))
 
         with torch.no_grad():
-            for i, a in enumerate(actions):
-                child = state.copy()
-                child.apply_action(a)
-                history = self._encode_history(child)
-                x = torch.from_numpy(history).float().unsqueeze(0)
-                q_values[i] = self._value_nets[player](x).item()
+            batch = torch.from_numpy(
+                np.stack(histories)
+            ).float().to(self._device)
+            q_values = (
+                self._value_nets[player](batch).squeeze(-1).cpu().numpy()
+            ).astype(np.float64)
 
         value = np.sum(policy * q_values)
         return q_values - value
@@ -336,6 +345,8 @@ class ESCHER:
 
         for _ in range(self.cfg.value_train_steps):
             states, _, targets = buf.sample(self.cfg.value_batch_size)
+            states = states.to(self._device)
+            targets = targets.to(self._device)
             preds = net(states)
             loss = F.mse_loss(preds, targets)
 
@@ -363,6 +374,9 @@ class ESCHER:
             states, iterations, combined = buf.sample(
                 self.cfg.regret_batch_size
             )
+            states = states.to(self._device)
+            iterations = iterations.to(self._device)
+            combined = combined.to(self._device)
             # Unpack: [regret_0..n-1, mask_0..n-1]
             targets = combined[:, :self._n]
             masks = combined[:, self._n:]
@@ -400,6 +414,9 @@ class ESCHER:
             states, iterations, targets = buf.sample(
                 self.cfg.policy_batch_size
             )
+            states = states.to(self._device)
+            iterations = iterations.to(self._device)
+            targets = targets.to(self._device)
             # LCFR: t / T
             weights = (iterations.float() / self._iteration).unsqueeze(1)
 
@@ -430,7 +447,7 @@ class ESCHER:
         with torch.no_grad():
             x = encode_info_state(
                 canonical_str, self.cfg.rows, self.cfg.cols
-            ).unsqueeze(0)
+            ).unsqueeze(0).to(self._device)
             regrets = self._regret_nets[player](x).squeeze(0)
 
         positive = {
@@ -506,11 +523,13 @@ class ESCHER:
             with torch.no_grad():
                 x = encode_info_state(
                     canonical_str, self.cfg.rows, self.cfg.cols
-                ).unsqueeze(0)
+                ).unsqueeze(0).to(self._device)
                 logits = self._policy_net(x).squeeze(0)
 
                 # Softmax over legal actions only
-                legal_logits = torch.full((self._n,), float('-inf'))
+                legal_logits = torch.full(
+                    (self._n,), float('-inf'), device=self._device
+                )
                 for ca in canonical_actions:
                     legal_logits[ca] = logits[ca]
                 probs = F.softmax(legal_logits, dim=0)

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { HexTile3D, type TileState } from './HexTile'
-import { gridToWorld, boardCenter, HEX, PALETTE } from './IsometricHex'
+import { gridToWorld, HEX, PALETTE } from './IsometricHex'
 import { toonMat } from './ToonMaterials'
 
 // ── Edge piece neighbor offsets per edge index ────────────────────────────────
@@ -141,9 +141,6 @@ export class BoardLayout3D {
 
     // Win-condition edge pieces (chevron bands along each border)
     this._buildEdgePieces(scene)
-
-    // Cream platform base
-    this._buildPlatform(scene, rows, cols)
   }
 
   // ── Tile accessors ────────────────────────────────────────────────────────
@@ -277,33 +274,4 @@ export class BoardLayout3D {
     }
   }
 
-  // ── Platform base ─────────────────────────────────────────────────────────
-
-  private _buildPlatform(scene: THREE.Scene, rows: number, cols: number): void {
-    const [cx, , cz] = boardCenter(rows, cols)
-
-    let minX = Infinity, maxX = -Infinity
-    let minZ = Infinity, maxZ = -Infinity
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const [x, z] = gridToWorld(r, c)
-        minX = Math.min(minX, x)
-        maxX = Math.max(maxX, x)
-        minZ = Math.min(minZ, z)
-        maxZ = Math.max(maxZ, z)
-      }
-    }
-    const pad = HEX.R * 2.2
-    const pw = (maxX - minX) + pad * 2
-    const ph = (maxZ - minZ) + pad * 2
-    const platformH = 0.5
-
-    const geo = new THREE.BoxGeometry(pw, platformH, ph, 1, 1, 1)
-    const topMat = new THREE.MeshToonMaterial({ color: PALETTE.platform })
-    const platform = new THREE.Mesh(geo, topMat)
-    platform.position.set(cx, -HEX.HEIGHT - platformH / 2 - 0.02, cz)
-    platform.castShadow = true
-    platform.receiveShadow = true
-    scene.add(platform)
-  }
 }

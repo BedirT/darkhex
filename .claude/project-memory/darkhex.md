@@ -22,26 +22,32 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - Isomorphic reduction halves effective state space for both tabular and neural approaches
 
 ## Active Tasks
+- **P0: GPU acceleration** — All neural solvers are CPU-only; GPU needed for 4x3+ scale
+- **P1: NFSP implementation** — User's best thesis results were with NFSP, not CFR variants
+- Scale ESCHER 4x3 with GPU + more traversals (K=5000+, 200+ iters)
+- Write ESCHER tests (test_escher.py) and experiment harness (exp006_escher.py)
 - Apply SIP/SIP+ to 1B strategy, then compute Ab-BR (thesis pipeline)
 - EXP-004: Run Ab-BR vs clairvoyant comparison on 4x3 CDH to 10B iterations
-- Implement DREAM (Outcome Sampling Deep CFR) for 4x3+ boards
 
 ## Completed Experiments
 - EXP-001: MCCFR convergence verification (done)
 - EXP-002: Info state enumeration — all thesis values confirmed (done)
 - EXP-003: 4x3 MCCFR convergence — 1B iters, expl 0.989 clairvoyant BR (done)
-- EXP-004 (repo): Deep CFR prototype — 2x2 (expl 0.04), 3x2 (expl 0.08), 4x3 ES infeasible (done)
+- EXP-004 (repo): Deep CFR prototype — 2x2 (expl 0.018), 3x2 (expl 0.045), 4x3 ES infeasible (done)
+- EXP-005: DREAM — 2x2 (expl 0.008), 3x2 (0.197), 3x3 (0.953 — OS variance too high), 4x3 running
+- EXP-006 (pending): ESCHER — 2x2 (expl 0.005), 3x3 (**0.020** — breakthrough), 4x3 running
 
 ## Recent Results (2026-04-02)
+- ESCHER implemented: IS-free neural CFR with 3-network architecture (darkhex/algorithms/escher.py)
+- ESCHER 3x3 CDH: exploitability 1.0 → **0.020** in 50 iters (293s) — breakthrough result
+- ESCHER 2x2 CDH: exploitability 1.0 → **0.005** in 30 iters (23s)
+- ESCHER eliminates IS weights entirely; regret variance ~1e-1 vs DREAM's ~1e8 on DH4
+- DREAM implemented but OS variance too high for 3x3+: 3x3 expl stuck at 0.953
+- Deep CFR (ES): 2x2 (expl 0.018), 3x2 (expl 0.045), 4x3 infeasible
 - Ab-BR implemented: thesis three-phase algorithm (reach collection → bucketing → reach-weighted DFS)
   - 4x3 @ 1B: Ab-BR=0.722, clairvoyant=0.989, thesis (SIP+)=0.002
-  - Gap vs thesis: raw MCCFR gives 0.722; need SIP+ post-processing for 0.002
-- Deep CFR implemented: External Sampling + neural advantage/strategy nets
-- 2x2 CDH: exploitability 1.0 → **0.018** in 100 CFR iterations (94s, K=200)
-- 3x2 CDH: exploitability 1.0 → **0.045** in 50 CFR iterations (324s, K=200)
-- 3x3 CDH: exploitability 1.0 → **0.60** in 30 CFR iterations (668s, K=5)
-- 4x3 CDH: External Sampling infeasible — need DREAM (Outcome Sampling variant)
-- 100+ tests passing (54 Rust + Python)
+- Code reviewed by internal agent + Codex; multiple correctness bugs caught and fixed
+- 122+ tests passing (54 Rust + 68 Python)
 
 ## Previous Results (2026-03-30)
 - Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings

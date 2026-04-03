@@ -14,7 +14,7 @@ The Rust workspace (`crates/`) produces three targets: `core` (pure engine), `py
 
 ```
 darkhex/
-├── Cargo.toml              # Workspace root (members = ["crates/*"])
+├── Cargo.toml              # Workspace root (members = core/python/wasm)
 ├── pyproject.toml           # Python project (maturin build backend)
 ├── Makefile                 # Dev commands: build, test, lint, check
 ├── crates/                  # Rust workspace
@@ -63,6 +63,9 @@ darkhex/
 │   └── vite.config.ts
 ├── darkhex/                 # Python package
 │   ├── algorithms/          # CFR variants (Python-side)
+│   │   ├── deep_cfr.py      # Deep CFR (External Sampling + NNs)
+│   │   ├── dream.py         # DREAM (Outcome Sampling + NNs + optional Q-baseline)
+│   │   └── escher.py        # ESCHER (IS-free: value net + regret net + avg policy)
 │   └── utils/               # Shared utilities
 ├── tests/                   # Python integration tests
 ├── docs/                    # Documentation
@@ -203,7 +206,8 @@ This replaces the old `pyspiel.Game` / `pyspiel.State` interface.
 | SIP (policy simplification) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.4 |
 | SIP+ (fractionized) | **Implemented** | `crates/core/src/solver/sip.rs` | Thesis §4.5 |
 | Deep CFR | **Implemented** | `darkhex/algorithms/deep_cfr.py` | Brown et al. ICML 2019 |
-| DREAM (Outcome Sampling Deep CFR) | Planned | — | Steinberger et al. 2020 |
+| DREAM (Outcome Sampling Deep CFR) | **Implemented** | `darkhex/algorithms/dream.py` | Steinberger et al. 2020 |
+| ESCHER (IS-free neural CFR) | **Implemented** | `darkhex/algorithms/escher.py` | McAleer et al. ICLR 2023 |
 | NFSP | Planned | — | Heinrich & Silver 2016 |
 
 ## Experiment Pipeline
@@ -291,7 +295,7 @@ Ported from the old Python/Tkinter `darkhex/gui/` PolGen tool. Lets researchers 
 DarkHexState (Rust, crates/core/)
     ↓ PyO3 (crates/python/)          ↓ WASM (crates/wasm/)
 Tabular: MCCFR (Rust)             DSaGe web app (game/)
-Neural: Deep CFR (Python+PyTorch)     ↓                         ↓
+Neural: Deep CFR / DREAM (Python+PyTorch) ↓                     ↓
     ↓                              Interactive play mode     Strategy generator
 Policy (Dict[str, List[(int, f)]])                             ↓
     ↓                                                    InfoStateOps (WASM)

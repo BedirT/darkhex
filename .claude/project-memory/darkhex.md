@@ -22,9 +22,9 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - Isomorphic reduction halves effective state space for both tabular and neural approaches
 
 ## Active Tasks
+- Apply SIP/SIP+ to 1B strategy, then compute Ab-BR (thesis pipeline)
+- EXP-004: Run Ab-BR vs clairvoyant comparison on 4x3 CDH to 10B iterations
 - Implement DREAM (Outcome Sampling Deep CFR) for 4x3+ boards
-- Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
-- Run 10B tabular OS-MCCFR iterations (resume from 1B checkpoint)
 
 ## Completed Experiments
 - EXP-001: MCCFR convergence verification (done)
@@ -33,23 +33,19 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - EXP-004 (repo): Deep CFR prototype — 2x2 (expl 0.04), 3x2 (expl 0.08), 4x3 ES infeasible (done)
 
 ## Recent Results (2026-04-02)
-- Deep CFR implemented: External Sampling + neural advantage/strategy nets (darkhex/algorithms/deep_cfr.py)
+- Ab-BR implemented: thesis three-phase algorithm (reach collection → bucketing → reach-weighted DFS)
+  - 4x3 @ 1B: Ab-BR=0.722, clairvoyant=0.989, thesis (SIP+)=0.002
+  - Gap vs thesis: raw MCCFR gives 0.722; need SIP+ post-processing for 0.002
+- Deep CFR implemented: External Sampling + neural advantage/strategy nets
 - 2x2 CDH: exploitability 1.0 → **0.018** in 100 CFR iterations (94s, K=200)
 - 3x2 CDH: exploitability 1.0 → **0.045** in 50 CFR iterations (324s, K=200)
-- 3x3 CDH: exploitability 1.0 → **0.60** in 30 CFR iterations (668s, K=5 — needs more K)
-- Fixed LCFR iteration counting (was per-player starting at 0, now 1-based per outer iter)
-- Fixed: seeded reservoir buffers, strategy renormalization, mandatory neural tests
-- 4x3 CDH: External Sampling infeasible (single traversal >30s, exponential in branching factor)
-- Optimized extract_strategy: game state memoization reduces 3x3 eval from >10min to 5.4s
-- Key finding: neural approximation converges well; bottleneck is ES traversal, not the NNs
-- Exposed canonical_info_state() in Python bindings for isomorphic reduction
-- PyTorch added as optional dependency (neural group)
-- 100 tests passing (54 Rust + 46 Python including 22 Deep CFR)
+- 3x3 CDH: exploitability 1.0 → **0.60** in 30 CFR iterations (668s, K=5)
+- 4x3 CDH: External Sampling infeasible — need DREAM (Outcome Sampling variant)
+- 100+ tests passing (54 Rust + Python)
 
 ## Previous Results (2026-03-30)
-- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings (2x2: 42→22, 3x2: 410→~205)
-- pONE belief-space precomputation: probability-1 win state pruning (opt-in, CDH only)
-- SIP/SIP+ policy simplification (Rust, thesis §4.4-4.5)
+- Isomorphic state reduction: 180° rotation symmetry, ~50% info state savings
+- pONE belief-space precomputation, SIP/SIP+ policy simplification
 - Exploitability / best response: clairvoyant upper bound, memoized DFS
 - 2x2 MCCFR convergence verified: exploitability 0.55 → 0.02 at 50k iters
 - Ground truth: 2x2=42 (22 canonical), 3x3=12,556, 4x3=367,919 (~184k canonical)

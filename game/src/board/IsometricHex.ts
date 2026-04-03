@@ -98,36 +98,36 @@ export function boardCenter(rows: number, cols: number): [number, number, number
   return [(x0 + x1) / 2, 0, (z0 + z1) / 2]
 }
 
-// ── Palette — exact values from the reference SVG ───────────────────────────
+// ── Palette — warm board-game colours with more saturation ──────────────────
 
 export const PALETTE = {
-  bg:          0xc2e1ff,
+  bg:          0xb8daf5,       // slightly deeper sky blue
 
-  tileTop:     0xd5b7b7,
-  tileSide:    0xc29797,
-  tileDark:    0x995a5a,
+  tileTop:     0xe0a8a0,       // warmer terracotta-rose (was grayish-pink)
+  tileSide:    0xc48878,       // richer clay side
+  tileDark:    0xa05848,       // deeper terracotta shadow
 
-  hoverTop:    0xe0caca,
+  hoverTop:    0xecc0b8,       // warm highlight on hover
 
-  blackTop:    0x4c556b,
-  blackSide:   0x373d4d,
-  blackEdge:   0x0c0e11,
+  blackTop:    0x3a4460,       // richer navy-slate
+  blackSide:   0x2a3148,       // deeper navy side
+  blackEdge:   0x0c0e14,
 
-  whiteTop:    0xd6dae4,
-  whiteSide:   0xb8becf,
-  whiteHi:     0x7b86a6,
+  whiteTop:    0xf0ece4,       // warm ivory (was cold gray-blue)
+  whiteSide:   0xd8d0c4,       // warm linen side
+  whiteHi:     0x8a8070,
 
-  edgeBlackTop:  0x4c556b,
-  edgeBlackSide: 0x373d4d,
-  edgeWhiteTop:  0xd6dae4,
-  edgeWhiteSide: 0xb8becf,
+  edgeBlackTop:  0x3a4460,
+  edgeBlackSide: 0x2a3148,
+  edgeWhiteTop:  0xf0ece4,
+  edgeWhiteSide: 0xd8d0c4,
 
-  lastTop:     0xccaaaa,
-  selectedTop: 0x81c784,   // soft green — selected tile in strategy mode
-  selectedSide:0x66a869,
+  lastTop:     0xd49888,       // warm recent-move highlight
+  selectedTop: 0x7cc47e,       // fresh green — selected tile
+  selectedSide:0x5ca860,
 
-  platform:    0xffffff,
-  platformEdge:0xcccccc,
+  platform:    0xfaf5ef,       // cream platform (matches UI)
+  platformEdge:0xd5c8b8,      // warm edge
 
-  outline:     0x2a2a30,
+  outline:     0x3a2820,       // warm dark brown outlines (was cold gray)
 } as const

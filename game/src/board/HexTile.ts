@@ -83,6 +83,8 @@ export class HexTile3D {
 
   /** Called when the stone first hits the board (at the bounce point). */
   onDropLand: (() => void) | null = null
+  /** Called when a stone starts vanishing. */
+  onVanishStart: (() => void) | null = null
 
   constructor(row: number, col: number, cellIndex: number) {
     this.row = row
@@ -267,8 +269,11 @@ export class HexTile3D {
 
     // Vanish animation (stone floats up + shrinks away)
     if (this._vanishTimer > -99 && this._vanishTimer < 100 && this.stoneGroup) {
+      const wasBefore = this._vanishTimer < 0
       this._vanishTimer += dt
       if (this._vanishTimer >= 0) {
+        // Fire sound on first active frame
+        if (wasBefore) this.onVanishStart?.()
         // Animation active
         const t = Math.min(this._vanishTimer / this._vanishDur, 1)
         // Ease-in quad: starts slow, accelerates away

@@ -9,7 +9,7 @@ import { StrategyGenerator } from '../strategy/StrategyGenerator'
 import { SetupPanel } from '../ui/SetupPanel'
 import { ActionPanel } from '../ui/ActionPanel'
 import { InfoPanel } from '../ui/InfoPanel'
-import { ensureAudioReady, playThock, playPlace, playDrop, playReveal } from '../audio/SoundEngine'
+import { ensureAudioReady, playThock, playPlace, playDrop, playReveal, playVanish } from '../audio/SoundEngine'
 
 const BOARD_ROWS = 4
 const BOARD_COLS = 3
@@ -267,12 +267,13 @@ export class BoardScene {
     this.board = new BoardLayout3D(this.scene, rows, cols)
     this.outlineRender.invalidateMeshList()
 
-    // Wire up landing sounds on all tiles (drop = clack, rise = soft reveal)
+    // Wire up sounds on all tiles
     for (const tile of this.board.allTiles()) {
       tile.onDropLand = () => {
         if (tile.stoneAnim === 'rise') playReveal()
         else playDrop()
       }
+      tile.onVanishStart = () => playVanish()
     }
 
     const [cx, , cz] = boardCenter(rows, cols)

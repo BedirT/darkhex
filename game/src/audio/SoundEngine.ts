@@ -139,6 +139,68 @@ export function playPlace(): void {
   osc.stop(now + 0.13)
 }
 
+// ── Stone vanish (soft upward whoosh) ──────────────────────────────────────
+
+/**
+ * Airy, breathy "pff" — stone dissolving and floating away.
+ * Rising pitch with filtered noise gives an upward, evaporating quality.
+ */
+export function playVanish(): void {
+  const c = ctx()
+  if (c.state !== 'running') return
+  const now = c.currentTime
+
+  const master = c.createGain()
+  master.gain.setValueAtTime(0.08, now)
+  master.connect(c.destination)
+
+  // ── Breathy whoosh — highpass noise that fades in then out ──────────
+  const dur = 0.18
+  const noiseLen = Math.ceil(c.sampleRate * dur)
+  const noiseBuf = c.createBuffer(1, noiseLen, c.sampleRate)
+  const noiseData = noiseBuf.getChannelData(0)
+  for (let i = 0; i < noiseLen; i++) {
+    // Bell envelope — fades in then out
+    const env = Math.sin((i / noiseLen) * Math.PI)
+    noiseData[i] = (Math.random() * 2 - 1) * env
+  }
+
+  const noise = c.createBufferSource()
+  noise.buffer = noiseBuf
+
+  // Highpass that rises — gives the "upward" sensation
+  const filter = c.createBiquadFilter()
+  filter.type = 'highpass'
+  filter.frequency.setValueAtTime(400, now)
+  filter.frequency.exponentialRampToValueAtTime(2000, now + dur)
+  filter.Q.setValueAtTime(0.7, now)
+
+  const noiseGain = c.createGain()
+  noiseGain.gain.setValueAtTime(1.0, now)
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + dur)
+
+  noise.connect(filter)
+  filter.connect(noiseGain)
+  noiseGain.connect(master)
+  noise.start(now)
+  noise.stop(now + dur)
+
+  // ── Soft rising tone — like air escaping ───────────────────────────
+  const osc = c.createOscillator()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(200, now)
+  osc.frequency.exponentialRampToValueAtTime(500, now + 0.12)
+
+  const oscGain = c.createGain()
+  oscGain.gain.setValueAtTime(0.3, now)
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14)
+
+  osc.connect(oscGain)
+  oscGain.connect(master)
+  osc.start(now)
+  osc.stop(now + 0.15)
+}
+
 // ── Stone drop landing (clack on impact) ───────────────────────────────────
 
 /**

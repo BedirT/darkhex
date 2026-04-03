@@ -22,11 +22,11 @@ Can we improve Dark Hex Nash equilibrium bounds beyond the thesis result (4x3: �
 - Isomorphic reduction halves effective state space for both tabular and neural approaches
 
 ## Active Tasks
-- Run ESCHER on 4x3 boards (the main feasibility test, running now)
-- Write ESCHER tests (test_escher.py)
-- Create ESCHER experiment harness (exp006_escher.py)
+- **P0: GPU acceleration** — All neural solvers are CPU-only; GPU needed for 4x3+ scale
+- **P1: NFSP implementation** — User's best thesis results were with NFSP, not CFR variants
+- Scale ESCHER 4x3 with GPU + more traversals (K=5000+, 200+ iters)
+- Write ESCHER tests (test_escher.py) and experiment harness (exp006_escher.py)
 - Implement Abstract Best Response (Ab-BR) for apples-to-apples thesis comparison
-- Run 10B tabular OS-MCCFR iterations (resume from 1B checkpoint)
 
 ## Completed Experiments
 - EXP-001: MCCFR convergence verification (done)

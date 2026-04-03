@@ -112,10 +112,11 @@ export class InfoPanel {
 
     this.collisionEl.style.display = state.isCollision ? 'inline' : 'none'
 
-    // Show action history for perfect recall (third line of info state string)
+    // Show action history for perfect recall (last line of info state string)
+    // Format: P{player}\n{row1}\n...\n{rowN}\n{history}
     if (state.perfectRecall) {
       const lines = state.infoState.split('\n')
-      const historyLine = lines.length >= 3 ? lines[2].trim() : ''
+      const historyLine = lines.length >= 3 ? lines[lines.length - 1].trim() : ''
       if (historyLine) {
         this.historyEl.textContent = `History: ${historyLine}`
         this.historyEl.style.display = 'block'

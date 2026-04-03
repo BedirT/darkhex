@@ -111,6 +111,7 @@ export class HexTile3D {
 
   setState(s: TileState, isLast = false, anim: StoneAnim = 'drop'): void {
     const changed = s !== this._state
+    const wasVanishing = this._vanishTimer > -99
     this._state = s
     this._isLast = isLast
     this._hovered = false
@@ -119,7 +120,13 @@ export class HexTile3D {
     // Reset tile to base height (e.g. if it was hovered/selected when stone placed)
     this.group.userData['targetY'] = this._baseY
     this._updateColors()
-    if (changed) this._updateStone(anim)
+    if (changed) {
+      this._updateStone(anim)
+    } else if (wasVanishing && this.stoneGroup) {
+      // Vanish was cancelled but state didn't change — restore stone transform
+      this.stoneGroup.position.set(0, this._stoneRestY, 0)
+      this.stoneGroup.scale.setScalar(1)
+    }
   }
 
   setSelected(s: boolean): void {
@@ -335,11 +342,12 @@ export class HexTile3D {
   }
 
   private _updateStone(anim: StoneAnim = 'drop'): void {
-    // Clean up any in-progress flip
+    // Clean up any in-progress flip — reset mesh position to normal
     if (this._flipPivot) {
       this._flipPivot.remove(this.mesh)
       if (this.stoneGroup) this._flipPivot.remove(this.stoneGroup)
       this.group.remove(this._flipPivot)
+      this.mesh.position.y = 0  // reset from -pivotY offset
       this.group.add(this.mesh)
       this._flipPivot = null
       this._flipTimer = -1

@@ -11,6 +11,8 @@ import { ActionPanel } from '../ui/ActionPanel'
 import { InfoPanel } from '../ui/InfoPanel'
 import { CompletionPanel } from '../ui/CompletionPanel'
 import { MainMenuPanel } from '../ui/MainMenuPanel'
+import { InvestigationView } from '../investigation/InvestigationView'
+import { loadPolicyFromFile } from '../investigation/policyImport'
 import { ensureAudioReady, playThock, playPlace, playDrop, playReveal, playVanish, playChime } from '../audio/SoundEngine'
 
 const BOARD_ROWS = 4
@@ -41,6 +43,7 @@ export class BoardScene {
   private _menuOpen = false
   private _setupOpen = false
   private _completionOpen = false
+  private _investigationOpen = false
   private _sessionToken = 0 // incremented on each menu return; guards stale async continuations
   private stratGen: StrategyGenerator | null = null
   private mainMenu!: MainMenuPanel
@@ -250,7 +253,7 @@ export class BoardScene {
   private _confirmingLeave = false
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (this._menuOpen || this._setupOpen || this._completionOpen || this._confirmingLeave) return
+    if (this._menuOpen || this._setupOpen || this._completionOpen || this._confirmingLeave || this._investigationOpen) return
     if (e.key === 'Escape') {
       if (this.stratGen && this.stratGen.progress.assigned > 0) {
         this._confirmLeave()
@@ -355,6 +358,23 @@ export class BoardScene {
           this.infoPanel.show()
           this._updateStrategyView()
           return
+        }
+
+        case 'strategy-investigation': {
+          const loaded = await loadPolicyFromFile()
+          if (!loaded) {
+            // Cancelled file picker — loop back to menu
+            this._menuOpen = true
+            this.controls.autoRotate = true
+            this.controls.autoRotateSpeed = 0.3
+            continue
+          }
+          await this._runInvestigation(loaded.policy, loaded.config)
+          // Return to menu after investigation exits
+          this._menuOpen = true
+          this.controls.autoRotate = true
+          this.controls.autoRotateSpeed = 0.3
+          continue
         }
       }
     }
@@ -567,11 +587,38 @@ export class BoardScene {
       } else if (action === 'new') {
         this._returnToMenu()
         return
+      } else if (action === 'investigate') {
+        this._completionOpen = false
+        const policy = this.stratGen!.policy
+        const config = {
+          rows: this.stratGen!.rows,
+          cols: this.stratGen!.cols,
+          player: this.stratGen!.player,
+          perfectRecall: this.stratGen!.perfectRecall,
+        }
+        await this._runInvestigation(policy, config)
+        // Return to completion modal (strategy preserved) — user can download/new/dismiss
+        continue
       } else {
         // Dismissed — let user keep inspecting the completed board
         this._completionOpen = false
         return
       }
+    }
+  }
+
+  private async _runInvestigation(policy: import('../strategy/types').Policy, config: import('../strategy/types').StrategyConfig): Promise<void> {
+    const token = this._sessionToken
+    const infoOps = await InfoStateOps.create(config.rows, config.cols)
+    if (token !== this._sessionToken) return
+
+    this._investigationOpen = true
+    const view = new InvestigationView(this.container)
+    try {
+      await view.run(policy, config, infoOps)
+    } finally {
+      view.dispose()
+      this._investigationOpen = false
     }
   }
 

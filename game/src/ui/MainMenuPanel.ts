@@ -10,7 +10,7 @@ const TEXT_MUTED = '#8a7070'
 const SHADOW = '0 8px 32px rgba(100, 60, 60, 0.18), 0 2px 8px rgba(100, 60, 60, 0.10)'
 const RADIUS = '14px'
 
-export type MenuChoice = 'strategy-generator'
+export type MenuChoice = 'strategy-generator' | 'strategy-investigation'
 
 interface MenuItem {
   id: MenuChoice | null
@@ -20,7 +20,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { id: 'strategy-generator', label: 'Strategy Generator', enabled: true },
-  { id: null, label: 'Strategy Investigation', enabled: false },
+  { id: 'strategy-investigation', label: 'Strategy Investigation', enabled: true },
   { id: null, label: 'Strategy Walker', enabled: false },
   { id: null, label: 'Game Tree Explorer', enabled: false },
   { id: null, label: 'Convergence Plots', enabled: false },

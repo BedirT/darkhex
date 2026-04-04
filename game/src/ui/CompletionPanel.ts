@@ -17,7 +17,7 @@ export interface CompletionStats {
   infoStates: number
 }
 
-export type CompletionAction = 'download' | 'new' | 'dismiss'
+export type CompletionAction = 'download' | 'new' | 'dismiss' | 'investigate'
 
 /**
  * Completion modal shown when a strategy is fully built.
@@ -97,6 +97,27 @@ export class CompletionPanel {
       this._resolve('download')
     })
     btnRow.appendChild(downloadBtn)
+
+    const investigateBtn = this._makeBtn('Investigate', GREEN, '#fff', `
+      flex: 1; font-weight: 800; border: none;
+      box-shadow: 0 3px 0 #3d7a3f, 0 4px 12px rgba(60, 100, 60, 0.2);
+    `)
+    investigateBtn.addEventListener('mousedown', () => {
+      investigateBtn.style.transform = 'translateY(2px)'
+      investigateBtn.style.boxShadow = '0 1px 0 #3d7a3f, 0 2px 6px rgba(60, 100, 60, 0.2)'
+    })
+    investigateBtn.addEventListener('mouseup', () => {
+      investigateBtn.style.transform = ''
+      investigateBtn.style.boxShadow = '0 3px 0 #3d7a3f, 0 4px 12px rgba(60, 100, 60, 0.2)'
+    })
+    investigateBtn.addEventListener('mouseover', () => { investigateBtn.style.background = '#4a8a4e' })
+    investigateBtn.addEventListener('mouseout', () => {
+      investigateBtn.style.background = GREEN
+      investigateBtn.style.transform = ''
+      investigateBtn.style.boxShadow = '0 3px 0 #3d7a3f, 0 4px 12px rgba(60, 100, 60, 0.2)'
+    })
+    investigateBtn.addEventListener('click', () => this._resolve('investigate'))
+    btnRow.appendChild(investigateBtn)
 
     const newBtn = this._makeBtn('New Strategy', CREAM, TEXT, `
       flex: 1; border: 2px solid ${MAUVE_LIGHT};

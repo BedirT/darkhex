@@ -21,3 +21,12 @@ export interface StrategyConfig {
   player: number         // 0 = Black, 1 = White
   perfectRecall: boolean
 }
+
+/** JSON format exported by StrategyGenerator.exportPolicy(). */
+export interface ExportedPolicy {
+  player: number
+  rows: number
+  cols: number
+  perfectRecall: boolean
+  policy: Record<string, Record<string, number>>
+}

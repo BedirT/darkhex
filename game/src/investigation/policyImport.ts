@@ -51,8 +51,10 @@ export function loadPolicyFromFile(): Promise<{ config: StrategyConfig; policy: 
     document.body.appendChild(input)
 
     let resolved = false
+    let fileChosen = false
 
     input.addEventListener('change', () => {
+      fileChosen = true
       const file = input.files?.[0]
       input.remove()
       if (!file) { resolved = true; resolve(null); return }
@@ -77,7 +79,7 @@ export function loadPolicyFromFile(): Promise<{ config: StrategyConfig; policy: 
     // Focus returns to window after picker closes
     window.addEventListener('focus', () => {
       setTimeout(() => {
-        if (!resolved) {
+        if (!resolved && !fileChosen) {
           input.remove()
           resolved = true
           resolve(null)

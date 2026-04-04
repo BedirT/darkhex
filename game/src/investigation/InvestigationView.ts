@@ -2,9 +2,10 @@ import type { Policy, StrategyConfig } from '../strategy/types'
 import type { InfoStateOps } from '../engine/InfoStateOps'
 import type { TreeNode } from './types'
 import { buildTree, cellLabel } from './TreeBuilder'
-import { DEFAULT_LAYOUT } from './TreeLayout'
+import { DEFAULT_LAYOUT, computeMaxDepth, setCollapseDepth } from './TreeLayout'
 import { TreeRenderer } from './TreeRenderer'
 import { drawMiniBoard, miniBoardSize } from './MiniBoard'
+import { exportTreeSvg, downloadSvg } from './SvgExport'
 
 const FONT = "'Nunito', -apple-system, BlinkMacSystemFont, sans-serif"
 const CREAM = '#faf5ef'
@@ -17,7 +18,7 @@ const SIDEBAR_WIDTH = 280
 
 /**
  * Full-screen investigation overlay.
- * Composes TreeRenderer (canvas) + detail sidebar + bottom bar.
+ * Composes TreeRenderer (canvas) + detail sidebar + top bar.
  */
 export class InvestigationView {
   private parent: HTMLElement
@@ -29,6 +30,7 @@ export class InvestigationView {
   private root: TreeNode | null = null
   private rows = 0
   private cols = 0
+  private config: StrategyConfig | null = null
 
   constructor(parent: HTMLElement) {
     this.parent = parent
@@ -37,9 +39,14 @@ export class InvestigationView {
   async run(policy: Policy, config: StrategyConfig, infoOps: InfoStateOps): Promise<void> {
     this.rows = config.rows
     this.cols = config.cols
+    this.config = config
 
     // Build tree
     this.root = buildTree(policy, infoOps, config)
+    const maxDepth = computeMaxDepth(this.root)
+
+    // Default: collapse at depth 1 (root expanded, children collapsed)
+    setCollapseDepth(this.root, 1)
 
     // Create overlay
     this.overlay = document.createElement('div')
@@ -52,9 +59,9 @@ export class InvestigationView {
     // ── Top bar ─────────────────────────────────────────────────────
     const topBar = document.createElement('div')
     topBar.style.cssText = `
-      display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+      display: flex; align-items: center; gap: 10px; padding: 10px 16px;
       border-bottom: 1px solid ${MAUVE_LIGHT}; flex-shrink: 0;
-      background: ${CREAM};
+      background: ${CREAM}; flex-wrap: wrap;
     `
 
     const escBadge = document.createElement('span')
@@ -66,12 +73,88 @@ export class InvestigationView {
     topBar.appendChild(escBadge)
 
     const fitBtn = this._makeBtn('Fit to View', MAUVE_LIGHT, TEXT)
-    fitBtn.addEventListener('click', () => this.renderer?.fitToView())
+    fitBtn.addEventListener('click', () => {
+      this.renderer?.fitToView()
+    })
     topBar.appendChild(fitBtn)
 
+    const exportBtn = this._makeBtn('Export SVG', MAUVE_DARK, '#fff')
+    exportBtn.addEventListener('click', () => {
+      if (!this.root) return
+      const svg = exportTreeSvg(this.root, this.rows, this.cols, DEFAULT_LAYOUT)
+      downloadSvg(svg, `strategy_${this.rows}x${this.cols}.svg`)
+    })
+    topBar.appendChild(exportBtn)
+
+    // ── Separator ──
+    topBar.appendChild(this._makeSep())
+
+    // ── Depth control ──
+    const depthWrap = document.createElement('div')
+    depthWrap.style.cssText = `display: flex; align-items: center; gap: 6px;`
+
+    const depthLabel = document.createElement('span')
+    depthLabel.style.cssText = `font-size: 12px; font-weight: 700; color: ${TEXT_MUTED};`
+    depthLabel.textContent = 'Depth:'
+
+    const depthValue = document.createElement('span')
+    depthValue.style.cssText = `font-size: 12px; font-weight: 800; color: ${TEXT}; min-width: 16px; text-align: center;`
+    depthValue.textContent = '1'
+
+    const depthSlider = document.createElement('input')
+    depthSlider.type = 'range'
+    depthSlider.min = '0'
+    depthSlider.max = String(maxDepth)
+    depthSlider.value = '1'
+    depthSlider.style.cssText = `width: 100px; accent-color: ${MAUVE_DARK}; cursor: pointer;`
+    depthSlider.addEventListener('input', () => {
+      const depth = Number(depthSlider.value)
+      depthValue.textContent = String(depth)
+      if (this.root) {
+        setCollapseDepth(this.root, depth)
+        this.renderer?.relayout()
+        this.renderer?.fitToView()
+      }
+    })
+
+    depthWrap.appendChild(depthLabel)
+    depthWrap.appendChild(depthSlider)
+    depthWrap.appendChild(depthValue)
+    topBar.appendChild(depthWrap)
+
+    const expandAllBtn = this._makeBtn('Expand All', MAUVE_LIGHT, TEXT)
+    expandAllBtn.addEventListener('click', () => {
+      if (this.root) {
+        depthSlider.value = String(maxDepth)
+        depthValue.textContent = String(maxDepth)
+        setCollapseDepth(this.root, maxDepth + 1)
+        this.renderer?.relayout()
+        this.renderer?.fitToView()
+      }
+    })
+    topBar.appendChild(expandAllBtn)
+
+    const collapseAllBtn = this._makeBtn('Collapse All', MAUVE_LIGHT, TEXT)
+    collapseAllBtn.addEventListener('click', () => {
+      if (this.root) {
+        depthSlider.value = '0'
+        depthValue.textContent = '0'
+        setCollapseDepth(this.root, 0)
+        this.renderer?.relayout()
+        this.renderer?.fitToView()
+      }
+    })
+    topBar.appendChild(collapseAllBtn)
+
+    // ── Spacer + summary ──
     const spacer = document.createElement('div')
     spacer.style.flex = '1'
     topBar.appendChild(spacer)
+
+    const navHint = document.createElement('span')
+    navHint.style.cssText = `font-size: 11px; color: ${TEXT_MUTED}; margin-right: 8px;`
+    navHint.textContent = '\u2190\u2191\u2192\u2193 navigate \u00B7 Enter toggle'
+    topBar.appendChild(navHint)
 
     const playerName = config.player === 0 ? 'Black' : 'White'
     const playerColor = config.player === 0 ? '#506080' : MAUVE_DARK
@@ -115,7 +198,7 @@ export class InvestigationView {
     this.renderer = new TreeRenderer(
       canvas, this.root, config.rows, config.cols, DEFAULT_LAYOUT,
       {
-        onNodeClick: (node) => this._showDetail(node, config),
+        onNodeClick: (node) => this._selectAndShow(node),
         onNodeDoubleClick: (node) => this._toggleCollapse(node),
       },
     )
@@ -126,6 +209,27 @@ export class InvestigationView {
       this._onKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           resolve()
+          return
+        }
+
+        // Arrow key navigation
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          e.preventDefault()
+          const current = this.renderer?.getSelectedNode() ?? null
+          const next = this.renderer?.navigateKey(e.key, current)
+          if (next) {
+            this._selectAndShow(next)
+            this.renderer?.panToNode(next)
+          }
+          return
+        }
+
+        // Enter/Space: toggle collapse on selected node
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          const sel = this.renderer?.getSelectedNode()
+          if (sel) this._toggleCollapse(sel)
+          return
         }
       }
       window.addEventListener('keydown', this._onKeyDown)
@@ -140,11 +244,20 @@ export class InvestigationView {
     this.renderer = null
   }
 
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  private _selectAndShow(node: TreeNode): void {
+    if (!this.config) return
+    this.renderer?.selectNode(node)
+    this._showDetail(node, this.config)
+    // Sidebar visibility change alters canvas flex width — trigger resize
+    requestAnimationFrame(() => this.renderer?.resize())
+  }
+
   // ── Detail sidebar ──────────────────────────────────────────────────────────
 
   private _showDetail(node: TreeNode, config: StrategyConfig): void {
     if (!this.detailEl) return
-    this.renderer?.selectNode(node)
     this.detailEl.style.display = 'flex'
     this.detailEl.innerHTML = ''
 
@@ -268,5 +381,11 @@ export class InvestigationView {
     btn.addEventListener('mouseover', () => { btn.style.filter = 'brightness(0.94)' })
     btn.addEventListener('mouseout', () => { btn.style.filter = '' })
     return btn
+  }
+
+  private _makeSep(): HTMLSpanElement {
+    const sep = document.createElement('span')
+    sep.style.cssText = `width: 1px; height: 20px; background: ${MAUVE_LIGHT}; flex-shrink: 0;`
+    return sep
   }
 }

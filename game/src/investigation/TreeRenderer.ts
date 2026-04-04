@@ -27,6 +27,13 @@ export interface TreeRendererCallbacks {
   onNodeDoubleClick: (node: TreeNode) => void
 }
 
+/** Navigation info computed from the visible tree structure. */
+interface NavMap {
+  parent: Map<number, TreeNode>            // child.id → parent node
+  siblingIndex: Map<number, number>        // node.id → index in parent's visible children
+  visibleChildren: Map<number, TreeNode[]> // node.id → visible child nodes
+}
+
 export class TreeRenderer {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
@@ -56,6 +63,7 @@ export class TreeRenderer {
   private visibleEdges: Array<{ parent: TreeNode; edge: TreeEdge }> = []
   private treeWidth = 0
   private treeHeight = 0
+  private nav: NavMap = { parent: new Map(), siblingIndex: new Map(), visibleChildren: new Map() }
 
   // RAF
   private _rafId = 0
@@ -109,12 +117,102 @@ export class TreeRenderer {
     this.treeHeight = bounds.height
     this.visibleNodes = collectVisibleNodes(this.root)
     this.visibleEdges = collectVisibleEdges(this.root)
+    this._buildNavMap()
     this._dirty = true
   }
 
   selectNode(node: TreeNode | null): void {
     this.selectedNode = node
     this._dirty = true
+  }
+
+  getSelectedNode(): TreeNode | null {
+    return this.selectedNode
+  }
+
+  /** Smoothly pan the camera to center a node in the viewport. */
+  panToNode(node: TreeNode): void {
+    const { nodeHeight } = this.layout
+    const targetX = this.cssWidth / 2 - node.x * this.camScale
+    const targetY = this.cssHeight / 2 - (node.y + nodeHeight / 2) * this.camScale
+    this.camX = targetX
+    this.camY = targetY
+    this._dirty = true
+  }
+
+  /**
+   * Handle arrow-key navigation. Returns the newly focused node, or null.
+   * - ArrowUp: parent
+   * - ArrowDown: first visible child (expands if collapsed)
+   * - ArrowLeft: previous sibling
+   * - ArrowRight: next sibling
+   */
+  navigateKey(key: string, current: TreeNode | null): TreeNode | null {
+    if (!current) {
+      // No selection — start at root
+      return this.root
+    }
+
+    const { parent, siblingIndex, visibleChildren } = this.nav
+
+    switch (key) {
+      case 'ArrowUp': {
+        const p = parent.get(current.id)
+        return p ?? null
+      }
+      case 'ArrowDown': {
+        const children = visibleChildren.get(current.id)
+        if (children && children.length > 0) return children[0]
+        return null
+      }
+      case 'ArrowLeft': {
+        const p = parent.get(current.id)
+        if (!p) return null
+        const siblings = visibleChildren.get(p.id)
+        if (!siblings) return null
+        const idx = siblingIndex.get(current.id) ?? 0
+        return idx > 0 ? siblings[idx - 1] : null
+      }
+      case 'ArrowRight': {
+        const p = parent.get(current.id)
+        if (!p) return null
+        const siblings = visibleChildren.get(p.id)
+        if (!siblings) return null
+        const idx = siblingIndex.get(current.id) ?? 0
+        return idx < siblings.length - 1 ? siblings[idx + 1] : null
+      }
+      default:
+        return null
+    }
+  }
+
+  /** Build parent/sibling lookup from visible nodes. */
+  private _buildNavMap(): void {
+    const parent = new Map<number, TreeNode>()
+    const siblingIndex = new Map<number, number>()
+    const vc = new Map<number, TreeNode[]>()
+    const visited = new Set<number>()
+
+    const walk = (node: TreeNode): void => {
+      if (visited.has(node.id)) return
+      visited.add(node.id)
+
+      if (!node.collapsed) {
+        const children = node.children.map((e) => e.child)
+        vc.set(node.id, children)
+        children.forEach((child, i) => {
+          if (!parent.has(child.id)) {
+            parent.set(child.id, node)
+            siblingIndex.set(child.id, i)
+          }
+        })
+        for (const child of children) walk(child)
+      } else {
+        vc.set(node.id, [])
+      }
+    }
+    walk(this.root)
+    this.nav = { parent, siblingIndex, visibleChildren: vc }
   }
 
   fitToView(): void {
@@ -129,6 +227,11 @@ export class TreeRenderer {
     this.camX = (cw - this.treeWidth * this.camScale) / 2
     this.camY = (ch - this.treeHeight * this.camScale) / 2 + pad / 2
     this._dirty = true
+  }
+
+  /** Recalculate canvas backing store after container resize. */
+  resize(): void {
+    this._resizeCanvas()
   }
 
   dispose(): void {

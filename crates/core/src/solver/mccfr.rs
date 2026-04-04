@@ -130,6 +130,14 @@ impl MCCFRSolver {
         self.epsilon
     }
 
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    pub fn cols(&self) -> usize {
+        self.cols
+    }
+
     /// Set an optional pONE database for pruning determined subtrees.
     pub fn set_pone_db(&mut self, db: PoneDb) {
         self.pone_db = Some(db);

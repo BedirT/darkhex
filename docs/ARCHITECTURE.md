@@ -282,11 +282,15 @@ Ported from the old Python/Tkinter `darkhex/gui/` PolGen tool. Lets researchers 
 | Terminal detection via HexBoard | Reuse union-find | Consistent win detection with the game engine; no duplicate logic |
 | Board-centric UX | Click tiles, overlays on 3D board | Researchers see the board as the player sees it, not an abstract tree |
 
-**Planned features**:
+**Completed features**:
 - Strategy investigation screen (browse completed strategy: step through info states, view assigned probabilities on the board, navigate the decision tree)
-- Strategy diagram export (generate visual game tree / strategy diagrams as SVG/PDF, similar to thesis figures — show info states, branching, and probability assignments)
-- Strategy walker (step through MCCFR policies)
-- Game tree exploration
+- SVG export of strategy tree diagrams (publication-quality vector output matching the canvas rendering)
+- MCCFR policy loading (Python CLI converts solver checkpoints to JSON for browser import; `scripts/export_policy.py`)
+- Depth slider + Expand All / Collapse All controls for navigating large trees
+- Keyboard navigation (arrow keys for parent/child/sibling traversal, Enter/Space to toggle collapse)
+
+**Planned features**:
+- Strategy walker (step through MCCFR policies interactively in the 3D board view)
 - Live MCCFR convergence plots
 
 ## Data Flow

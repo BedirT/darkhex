@@ -76,7 +76,7 @@ export class InfoPanel {
       background: #fff; padding: 3px 10px; border-radius: 6px;
       border: 1px solid ${MAUVE_LIGHT}; white-space: nowrap;
     `
-    exitHint.textContent = 'Esc = restart'
+    exitHint.textContent = 'Esc = menu'
     this.container.appendChild(exitHint)
 
     // ── History line (perfect recall only) ─────────────────────────────

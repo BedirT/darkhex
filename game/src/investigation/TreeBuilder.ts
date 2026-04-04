@@ -44,6 +44,8 @@ export function buildTree(
     const isTerminal = infoOps.isTerminal(infoState)
     const actions = policy.get(infoState) ?? []
 
+    const isMissing = !isTerminal && actions.length === 0
+
     const node: TreeNode = {
       id,
       infoState,
@@ -52,6 +54,7 @@ export function buildTree(
       children: [],
       depth,
       isTerminal,
+      isMissing,
       x: 0,
       y: 0,
       collapsed: depth >= DEFAULT_COLLAPSE_DEPTH,

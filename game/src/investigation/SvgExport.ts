@@ -279,6 +279,18 @@ export function exportTreeSvg(
       )
     }
 
+    // Missing policy badge
+    if (node.isMissing) {
+      const badgeW = 12
+      const badgeH = 12
+      const bx = x + nodeWidth - badgeW - 3
+      const by = y + 3
+      parts.push(
+        `<rect x="${fmt(bx)}" y="${fmt(by)}" width="${badgeW}" height="${badgeH}" rx="3" fill="#d4920a"/>`,
+        `<text x="${fmt(bx + badgeW / 2)}" y="${fmt(by + badgeH / 2)}" text-anchor="middle" dominant-baseline="central" style="font-size:9px;font-weight:bold;fill:#fff">?</text>`,
+      )
+    }
+
     // Collapse badge
     if (node.collapsed && node.children.length > 0) {
       const label = `+${node.subtreeSize}`

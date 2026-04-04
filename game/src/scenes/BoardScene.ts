@@ -361,6 +361,7 @@ export class BoardScene {
         }
 
         case 'strategy-investigation': {
+          const token = this._sessionToken
           const loaded = await loadPolicyFromFile()
           if (!loaded) {
             // Cancelled file picker — loop back to menu
@@ -369,7 +370,13 @@ export class BoardScene {
             this.controls.autoRotateSpeed = 0.3
             continue
           }
-          await this._runInvestigation(loaded.policy, loaded.config)
+          if (token !== this._sessionToken) return // session cancelled while picking file
+          try {
+            await this._runInvestigation(loaded.policy, loaded.config)
+          } catch (err) {
+            console.error('Investigation failed:', err)
+            // Bad policy file — fall through to menu
+          }
           // Return to menu after investigation exits
           this._menuOpen = true
           this.controls.autoRotate = true

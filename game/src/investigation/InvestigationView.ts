@@ -343,6 +343,7 @@ export class InvestigationView {
       `Children: ${node.children.length}`,
       `Subtree: ${node.subtreeSize} nodes`,
       node.isTerminal ? `Terminal` : null,
+      node.isMissing ? `Missing policy` : null,
     ].filter(Boolean)
     meta.textContent = items.join(' \u00B7 ')
     this.detailEl.appendChild(meta)

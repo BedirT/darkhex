@@ -368,6 +368,23 @@ export class TreeRenderer {
       ctx.fillText('END', bx + badgeW / 2, by + badgeH / 2)
     }
 
+    // Missing policy badge (non-terminal but no policy entry)
+    if (node.isMissing) {
+      const badgeW = 12
+      const badgeH = 12
+      const bx = x + nodeWidth - badgeW - 3
+      const by = y + 3
+      ctx.beginPath()
+      this._roundRect(ctx, bx, by, badgeW, badgeH, 3)
+      ctx.fillStyle = '#d4920a'
+      ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold 9px ${FONT}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('?', bx + badgeW / 2, by + badgeH / 2)
+    }
+
     // Collapse badge: show "+N" if collapsed and has children
     if (node.collapsed && node.children.length > 0) {
       const label = `+${node.subtreeSize}`

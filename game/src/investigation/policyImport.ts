@@ -10,6 +10,12 @@ export function parseExportedPolicy(data: unknown): { config: StrategyConfig; po
   if (typeof obj.policy !== 'object' || obj.policy === null) throw new Error('Invalid policy: missing policy map')
 
   const exported = obj as unknown as ExportedPolicy
+
+  // Strict range validation
+  if (exported.player !== 0 && exported.player !== 1) throw new Error(`Invalid player: ${exported.player} (must be 0 or 1)`)
+  if (!Number.isInteger(exported.rows) || exported.rows < 1 || exported.rows > 19) throw new Error(`Invalid rows: ${exported.rows}`)
+  if (!Number.isInteger(exported.cols) || exported.cols < 1 || exported.cols > 19) throw new Error(`Invalid cols: ${exported.cols}`)
+
   const config: StrategyConfig = {
     player: exported.player,
     rows: exported.rows,

@@ -14,6 +14,21 @@ import sys
 from darkhex._engine import MCCFRSolver, simplify_policy, simplify_policy_plus
 
 
+def rotate_info_state(info_state: str, rows: int, cols: int) -> str:
+    """Compute the 180° rotated info state string."""
+    lines = info_state.split("\n")
+    player_line = lines[0]
+    board = "".join(lines[1:])
+    rotated = board[::-1]
+    board_lines = [rotated[i : i + cols] for i in range(0, len(rotated), cols)]
+    return player_line + "\n" + "\n".join(board_lines)
+
+
+def rotate_action(action: int, total_cells: int) -> int:
+    """Rotate a cell index by 180°."""
+    return total_cells - 1 - action
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert MCCFR checkpoint to DSaGe policy JSON",
@@ -79,12 +94,27 @@ def main() -> None:
     )
 
     # Convert to ExportedPolicy format: {info_state: {action_str: prob}}
+    # The solver stores canonical keys (isomorphic reduction via 180° rotation).
+    # The tree builder generates raw keys. Emit both canonical and rotated forms
+    # so lookups succeed regardless of which form the tree builder produces.
+    rows, cols = solver.rows(), solver.cols()
+    total_cells = rows * cols
     policy_dict: dict[str, dict[str, float]] = {}
     for info_state, actions in player_strategy.items():
         action_map: dict[str, float] = {}
         for action, prob in actions:
             action_map[str(action)] = round(float(prob), 6)
         policy_dict[info_state] = action_map
+
+        # Also emit the rotated (non-canonical) form
+        rotated_key = rotate_info_state(info_state, rows, cols)
+        if rotated_key != info_state and rotated_key not in policy_dict:
+            rotated_actions: dict[str, float] = {}
+            for action, prob in actions:
+                rotated_actions[str(rotate_action(action, total_cells))] = round(
+                    float(prob), 6,
+                )
+            policy_dict[rotated_key] = rotated_actions
 
     output = {
         "player": args.player,

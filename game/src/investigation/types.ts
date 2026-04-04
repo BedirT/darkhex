@@ -8,6 +8,8 @@ export interface TreeNode {
   children: TreeEdge[]
   depth: number
   isTerminal: boolean
+  /** True if this non-terminal state has no policy entry (partial checkpoint). */
+  isMissing: boolean
   // Layout (set by TreeLayout)
   x: number
   y: number

@@ -301,6 +301,14 @@ impl MCCFRSolver {
         self.inner.epsilon()
     }
 
+    fn rows(&self) -> usize {
+        self.inner.rows()
+    }
+
+    fn cols(&self) -> usize {
+        self.inner.cols()
+    }
+
     fn get_average_strategy(&self) -> HashMap<String, Vec<(usize, f32)>> {
         self.inner.get_average_strategy()
     }

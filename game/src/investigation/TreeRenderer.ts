@@ -27,6 +27,13 @@ export interface TreeRendererCallbacks {
   onNodeDoubleClick: (node: TreeNode) => void
 }
 
+/** Navigation info computed from the visible tree structure. */
+interface NavMap {
+  parent: Map<number, TreeNode>            // child.id → parent node
+  siblingIndex: Map<number, number>        // node.id → index in parent's visible children
+  visibleChildren: Map<number, TreeNode[]> // node.id → visible child nodes
+}
+
 export class TreeRenderer {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
@@ -40,6 +47,14 @@ export class TreeRenderer {
   private camX = 0
   private camY = 0
   private camScale = 1
+
+  // Animation
+  private animStartX = 0
+  private animStartY = 0
+  private animTargetX = 0
+  private animTargetY = 0
+  private animStartTime = 0
+  private animDuration = 0
 
   // Interaction state
   private dragging = false
@@ -56,6 +71,7 @@ export class TreeRenderer {
   private visibleEdges: Array<{ parent: TreeNode; edge: TreeEdge }> = []
   private treeWidth = 0
   private treeHeight = 0
+  private nav: NavMap = { parent: new Map(), siblingIndex: new Map(), visibleChildren: new Map() }
 
   // RAF
   private _rafId = 0
@@ -109,12 +125,117 @@ export class TreeRenderer {
     this.treeHeight = bounds.height
     this.visibleNodes = collectVisibleNodes(this.root)
     this.visibleEdges = collectVisibleEdges(this.root)
+    this._buildNavMap()
     this._dirty = true
   }
 
   selectNode(node: TreeNode | null): void {
     this.selectedNode = node
     this._dirty = true
+  }
+
+  getSelectedNode(): TreeNode | null {
+    return this.selectedNode
+  }
+
+  /** Smoothly animate the camera to center a node in the viewport. */
+  panToNode(node: TreeNode): void {
+    const { nodeHeight } = this.layout
+    const targetX = this.cssWidth / 2 - node.x * this.camScale
+    const targetY = this.cssHeight / 2 - (node.y + nodeHeight / 2) * this.camScale
+
+    // Skip animation if distance is tiny
+    const dx = targetX - this.camX
+    const dy = targetY - this.camY
+    if (dx * dx + dy * dy < 4) {
+      this.camX = targetX
+      this.camY = targetY
+      this._dirty = true
+      return
+    }
+
+    this.animStartX = this.camX
+    this.animStartY = this.camY
+    this.animTargetX = targetX
+    this.animTargetY = targetY
+    this.animStartTime = performance.now()
+    this.animDuration = 200 // ms
+    this._dirty = true
+  }
+
+  /**
+   * Handle arrow-key navigation. Returns the newly focused node, or null.
+   * - ArrowUp: parent
+   * - ArrowDown: first visible child (expands if collapsed)
+   * - ArrowLeft: previous sibling
+   * - ArrowRight: next sibling
+   */
+  navigateKey(key: string, current: TreeNode | null): TreeNode | null {
+    if (!current) {
+      // No selection — start at root
+      return this.root
+    }
+
+    const { parent, siblingIndex, visibleChildren } = this.nav
+
+    switch (key) {
+      case 'ArrowUp': {
+        const p = parent.get(current.id)
+        return p ?? null
+      }
+      case 'ArrowDown': {
+        const children = visibleChildren.get(current.id)
+        if (children && children.length > 0) return children[0]
+        return null
+      }
+      case 'ArrowLeft': {
+        const p = parent.get(current.id)
+        if (!p) return null
+        const siblings = visibleChildren.get(p.id)
+        if (!siblings) return null
+        const idx = siblingIndex.get(current.id) ?? 0
+        return idx > 0 ? siblings[idx - 1] : null
+      }
+      case 'ArrowRight': {
+        const p = parent.get(current.id)
+        if (!p) return null
+        const siblings = visibleChildren.get(p.id)
+        if (!siblings) return null
+        const idx = siblingIndex.get(current.id) ?? 0
+        return idx < siblings.length - 1 ? siblings[idx + 1] : null
+      }
+      default:
+        return null
+    }
+  }
+
+  /** Build parent/sibling lookup from visible nodes. */
+  private _buildNavMap(): void {
+    const parent = new Map<number, TreeNode>()
+    const siblingIndex = new Map<number, number>()
+    const vc = new Map<number, TreeNode[]>()
+    const visited = new Set<number>()
+
+    const walk = (node: TreeNode): void => {
+      if (visited.has(node.id)) return
+      visited.add(node.id)
+
+      if (!node.collapsed) {
+        const children = node.children.map((e) => e.child)
+        vc.set(node.id, children)
+        children.forEach((child, i) => {
+          if (!parent.has(child.id)) {
+            parent.set(child.id, node)
+            siblingIndex.set(child.id, i)
+          }
+        })
+        for (const child of children) walk(child)
+      } else {
+        vc.set(node.id, [])
+      }
+    }
+    walk(this.root)
+    this.nav = { parent, siblingIndex, visibleChildren: vc }
   }
 
   fitToView(): void {
@@ -131,6 +252,11 @@ export class TreeRenderer {
     this._dirty = true
   }
 
+  /** Recalculate canvas backing store after container resize. */
+  resize(): void {
+    this._resizeCanvas()
+  }
+
   dispose(): void {
     cancelAnimationFrame(this._rafId)
     this.canvas.removeEventListener('wheel', this._onWheel)
@@ -145,6 +271,25 @@ export class TreeRenderer {
 
   private _animate = (): void => {
     this._rafId = requestAnimationFrame(this._animate)
+
+    // Update camera animation
+    if (this.animDuration > 0) {
+      const now = performance.now()
+      const elapsed = now - this.animStartTime
+      if (elapsed >= this.animDuration) {
+        this.camX = this.animTargetX
+        this.camY = this.animTargetY
+        this.animDuration = 0
+      } else {
+        // Ease-out cubic: 1 - (1-t)^3
+        const t = elapsed / this.animDuration
+        const ease = 1 - (1 - t) * (1 - t) * (1 - t)
+        this.camX = this.animStartX + (this.animTargetX - this.animStartX) * ease
+        this.camY = this.animStartY + (this.animTargetY - this.animStartY) * ease
+      }
+      this._dirty = true
+    }
+
     if (!this._dirty) return
     this._dirty = false
     this._draw()
@@ -221,6 +366,23 @@ export class TreeRenderer {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText('END', bx + badgeW / 2, by + badgeH / 2)
+    }
+
+    // Missing policy badge (non-terminal but no policy entry)
+    if (node.isMissing) {
+      const badgeW = 12
+      const badgeH = 12
+      const bx = x + nodeWidth - badgeW - 3
+      const by = y + 3
+      ctx.beginPath()
+      this._roundRect(ctx, bx, by, badgeW, badgeH, 3)
+      ctx.fillStyle = '#d4920a'
+      ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.font = `bold 9px ${FONT}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('?', bx + badgeW / 2, by + badgeH / 2)
     }
 
     // Collapse badge: show "+N" if collapsed and has children

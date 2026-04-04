@@ -48,6 +48,14 @@ export class TreeRenderer {
   private camY = 0
   private camScale = 1
 
+  // Animation
+  private animStartX = 0
+  private animStartY = 0
+  private animTargetX = 0
+  private animTargetY = 0
+  private animStartTime = 0
+  private animDuration = 0
+
   // Interaction state
   private dragging = false
   private dragStartX = 0
@@ -130,13 +138,28 @@ export class TreeRenderer {
     return this.selectedNode
   }
 
-  /** Smoothly pan the camera to center a node in the viewport. */
+  /** Smoothly animate the camera to center a node in the viewport. */
   panToNode(node: TreeNode): void {
     const { nodeHeight } = this.layout
     const targetX = this.cssWidth / 2 - node.x * this.camScale
     const targetY = this.cssHeight / 2 - (node.y + nodeHeight / 2) * this.camScale
-    this.camX = targetX
-    this.camY = targetY
+
+    // Skip animation if distance is tiny
+    const dx = targetX - this.camX
+    const dy = targetY - this.camY
+    if (dx * dx + dy * dy < 4) {
+      this.camX = targetX
+      this.camY = targetY
+      this._dirty = true
+      return
+    }
+
+    this.animStartX = this.camX
+    this.animStartY = this.camY
+    this.animTargetX = targetX
+    this.animTargetY = targetY
+    this.animStartTime = performance.now()
+    this.animDuration = 200 // ms
     this._dirty = true
   }
 
@@ -248,6 +271,25 @@ export class TreeRenderer {
 
   private _animate = (): void => {
     this._rafId = requestAnimationFrame(this._animate)
+
+    // Update camera animation
+    if (this.animDuration > 0) {
+      const now = performance.now()
+      const elapsed = now - this.animStartTime
+      if (elapsed >= this.animDuration) {
+        this.camX = this.animTargetX
+        this.camY = this.animTargetY
+        this.animDuration = 0
+      } else {
+        // Ease-out cubic: 1 - (1-t)^3
+        const t = elapsed / this.animDuration
+        const ease = 1 - (1 - t) * (1 - t) * (1 - t)
+        this.camX = this.animStartX + (this.animTargetX - this.animStartX) * ease
+        this.camY = this.animStartY + (this.animTargetY - this.animStartY) * ease
+      }
+      this._dirty = true
+    }
+
     if (!this._dirty) return
     this._dirty = false
     this._draw()

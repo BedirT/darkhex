@@ -10,6 +10,7 @@ import { SetupPanel } from '../ui/SetupPanel'
 import { ActionPanel } from '../ui/ActionPanel'
 import { InfoPanel } from '../ui/InfoPanel'
 import { CompletionPanel } from '../ui/CompletionPanel'
+import { MainMenuPanel } from '../ui/MainMenuPanel'
 import { ensureAudioReady, playThock, playPlace, playDrop, playReveal, playVanish, playChime } from '../audio/SoundEngine'
 
 const BOARD_ROWS = 4
@@ -37,9 +38,12 @@ export class BoardScene {
   private _rafId = 0
 
   // Strategy mode
+  private _menuOpen = false
   private _setupOpen = false
   private _completionOpen = false
+  private _sessionToken = 0 // incremented on each menu return; guards stale async continuations
   private stratGen: StrategyGenerator | null = null
+  private mainMenu!: MainMenuPanel
   private setupPanel!: SetupPanel
   private actionPanel!: ActionPanel
   private infoPanel!: InfoPanel
@@ -113,6 +117,7 @@ export class BoardScene {
 
   async init(): Promise<void> {
     this.board = new BoardLayout3D(this.scene, BOARD_ROWS, BOARD_COLS)
+    this.mainMenu = new MainMenuPanel(this.container)
     this.setupPanel = new SetupPanel(this.container)
     this.actionPanel = new ActionPanel(this.container)
     this.infoPanel = new InfoPanel(this.container)
@@ -132,8 +137,8 @@ export class BoardScene {
 
     this._animate()
 
-    // Go straight into strategy mode
-    this._enterStrategyMode()
+    // Show main menu (board rotates gently in background)
+    this._showMainMenu()
   }
 
   // ── Render loop ─────────────────────────────────────────────────────────
@@ -242,13 +247,129 @@ export class BoardScene {
     this._syncSelectionUI()
   }
 
+  private _confirmingLeave = false
+
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (this._setupOpen || this._completionOpen) return
-    if (e.key === 'Escape') this._restartStrategyMode()
+    if (this._menuOpen || this._setupOpen || this._completionOpen || this._confirmingLeave) return
+    if (e.key === 'Escape') {
+      if (this.stratGen && this.stratGen.progress.assigned > 0) {
+        this._confirmLeave()
+      } else {
+        this._returnToMenu()
+      }
+    }
     if (e.key === 'Enter' && this.selectedTiles.size > 0) {
       const result = this.actionPanel.getActionProbs()
       if (result) this._handleConfirm(result.actions, result.probs)
     }
+  }
+
+  // ── Leave confirmation ─────────────────────────────────────────────────────
+
+  private _confirmLeave(): void {
+    this._confirmingLeave = true
+
+    const overlay = document.createElement('div')
+    overlay.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(180, 160, 140, 0.45); backdrop-filter: blur(4px);
+      z-index: 100; display: flex; align-items: center; justify-content: center;
+    `
+
+    const panel = document.createElement('div')
+    panel.style.cssText = `
+      background: #faf5ef; border-radius: 14px; padding: 28px 32px;
+      min-width: 320px; max-width: 380px; text-align: center;
+      box-shadow: 0 8px 32px rgba(100, 60, 60, 0.18), 0 2px 8px rgba(100, 60, 60, 0.10);
+      border: 2px solid #e8d5d5;
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif; color: #4a3535;
+    `
+    panel.innerHTML = `
+      <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #995a5a;">Leave Strategy?</h2>
+      <p style="margin: 0 0 24px; font-size: 14px; color: #8a7070;">
+        Current progress will be lost. You can download the policy first from the completion screen.
+      </p>
+      <div style="display: flex; gap: 10px;">
+        <button id="leave-cancel" style="
+          flex: 1; padding: 12px 16px; font-size: 15px; font-weight: 700;
+          font-family: 'Nunito', sans-serif; color: #4a3535; background: #fff;
+          border: 2px solid #e8d5d5; border-radius: 10px; cursor: pointer;
+        ">Keep Working</button>
+        <button id="leave-confirm" style="
+          flex: 1; padding: 12px 16px; font-size: 15px; font-weight: 800;
+          font-family: 'Nunito', sans-serif; color: #fff; background: #c75000;
+          border: none; border-radius: 10px; cursor: pointer;
+          box-shadow: 0 3px 0 #9a3d00, 0 4px 12px rgba(100, 60, 60, 0.2);
+        ">Leave</button>
+      </div>
+    `
+    overlay.appendChild(panel)
+    this.container.appendChild(overlay)
+
+    const cleanup = () => {
+      overlay.remove()
+      this._confirmingLeave = false
+    }
+
+    panel.querySelector('#leave-cancel')!.addEventListener('click', () => cleanup())
+    panel.querySelector('#leave-confirm')!.addEventListener('click', () => {
+      cleanup()
+      this._returnToMenu()
+    })
+  }
+
+  // ── Main menu ──────────────────────────────────────────────────────────────
+
+  private async _showMainMenu(): Promise<void> {
+    this._menuOpen = true
+    this.controls.autoRotate = true
+    this.controls.autoRotateSpeed = 0.3
+
+    while (true) {
+      const choice = await this.mainMenu.show()
+      this._menuOpen = false
+      this.controls.autoRotate = false
+
+      switch (choice) {
+        case 'strategy-generator': {
+          const token = this._sessionToken
+          this._setupOpen = true
+          const config = await this.setupPanel.show(true) // cancellable — Cancel returns to menu
+          this._setupOpen = false
+
+          if (!config) {
+            // User cancelled setup — loop back to menu
+            this._menuOpen = true
+            this.controls.autoRotate = true
+            this.controls.autoRotateSpeed = 0.3
+            continue
+          }
+          if (token !== this._sessionToken) return // session was cancelled while awaiting
+
+          this._rebuildBoard(config.rows, config.cols)
+          const infoOps = await InfoStateOps.create(config.rows, config.cols)
+          if (token !== this._sessionToken) return // session was cancelled while WASM loaded
+
+          this.stratGen = new StrategyGenerator(infoOps, config)
+          this.actionPanel.show()
+          this.infoPanel.show()
+          this._updateStrategyView()
+          return
+        }
+      }
+    }
+  }
+
+  private async _returnToMenu(): Promise<void> {
+    this._sessionToken++ // invalidate any in-flight async from prior session
+    this.actionPanel.hide()
+    this.infoPanel.hide()
+    this._clearSelection()
+    for (const el of this.probLabels.values()) el.remove()
+    this.probLabels.clear()
+    this.stratGen = null
+    this._rebuildBoard(BOARD_ROWS, BOARD_COLS)
+    await this._showMainMenu()
   }
 
   // ── Strategy mode ─────────────────────────────────────────────────────────
@@ -286,59 +407,6 @@ export class BoardScene {
     this.camera.lookAt(cx, 0, cz)
     this.controls.target.set(cx, 0, cz)
     this.controls.update()
-  }
-
-  private async _enterStrategyMode(cancellable = false): Promise<void> {
-    this._setupOpen = true
-    const config = await this.setupPanel.show(cancellable)
-    this._setupOpen = false
-    if (!config) return
-
-    // Rebuild board for the requested dimensions
-    this._rebuildBoard(config.rows, config.cols)
-
-    const infoOps = await InfoStateOps.create(config.rows, config.cols)
-    this.stratGen = new StrategyGenerator(infoOps, config)
-
-    this.actionPanel.show()
-    this.infoPanel.show()
-    this._updateStrategyView()
-  }
-
-  /** Escape: show setup panel; cancel returns to current strategy. */
-  private async _restartStrategyMode(): Promise<void> {
-    const hadStrategy = this.stratGen !== null
-
-    // Hide panels while setup is showing
-    this.actionPanel.hide()
-    this.infoPanel.hide()
-
-    this._setupOpen = true
-    const config = await this.setupPanel.show(hadStrategy)
-    this._setupOpen = false
-    if (!config) {
-      // User cancelled — restore previous strategy view if one exists
-      if (hadStrategy) {
-        this.actionPanel.show()
-        this.infoPanel.show()
-      }
-      return
-    }
-
-    // Tear down old strategy and start fresh
-    this._clearSelection()
-    for (const el of this.probLabels.values()) el.remove()
-    this.probLabels.clear()
-    this.stratGen = null
-
-    this._rebuildBoard(config.rows, config.cols)
-
-    const infoOps = await InfoStateOps.create(config.rows, config.cols)
-    this.stratGen = new StrategyGenerator(infoOps, config)
-
-    this.actionPanel.show()
-    this.infoPanel.show()
-    this._updateStrategyView()
   }
 
   /** Confirm selected actions with given probabilities. */
@@ -497,33 +565,7 @@ export class BoardScene {
         // After download, re-show the modal so user can still start new
         continue
       } else if (action === 'new') {
-        // Try to start new — if user cancels setup, loop back to completion
-        this.actionPanel.hide()
-        this.infoPanel.hide()
-
-        this._setupOpen = true
-        const config = await this.setupPanel.show(true)
-        this._setupOpen = false
-
-        if (!config) {
-          // Cancelled — restore panels and re-show completion
-          this.actionPanel.show()
-          this.infoPanel.show()
-          continue
-        }
-
-        // New config chosen — tear down and start fresh
-        this._clearSelection()
-        for (const el of this.probLabels.values()) el.remove()
-        this.probLabels.clear()
-        this.stratGen = null
-
-        this._rebuildBoard(config.rows, config.cols)
-        const infoOps = await InfoStateOps.create(config.rows, config.cols)
-        this.stratGen = new StrategyGenerator(infoOps, config)
-        this.actionPanel.show()
-        this.infoPanel.show()
-        this._updateStrategyView()
+        this._returnToMenu()
         return
       } else {
         // Dismissed — let user keep inspecting the completed board

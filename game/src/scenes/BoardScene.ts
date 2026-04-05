@@ -14,6 +14,8 @@ import { MainMenuPanel } from '../ui/MainMenuPanel'
 import { InvestigationView } from '../investigation/InvestigationView'
 import { loadPolicyFromFile } from '../investigation/policyImport'
 import { ensureAudioReady, playThock, playPlace, playDrop, playReveal, playVanish, playChime } from '../audio/SoundEngine'
+import { TutorialEngine } from '../tutorial/TutorialEngine'
+import type { TutorialHooks, TutorialSceneAdapter } from '../tutorial/TutorialEngine'
 
 const BOARD_ROWS = 4
 const BOARD_COLS = 3
@@ -56,6 +58,11 @@ export class BoardScene {
   private probLabels: Map<number, HTMLDivElement> = new Map()
   private _lastClickTime = 0
   private _lastClickTile = -1
+
+  // Tutorial mode
+  private _tutorialActive = false
+  private _tutorialHooks: TutorialHooks | null = null
+  private _investigationView: InvestigationView | null = null
 
   constructor(private container: HTMLElement) {
     // ── Renderer ──────────────────────────────────────────────────────────
@@ -234,6 +241,7 @@ export class BoardScene {
       // Double-click: instant deterministic action
       this._clearSelection()
       playPlace()
+      this._tutorialHooks?.onDoubleClickTile?.(tile.cellIndex)
       this._handleConfirm([tile.cellIndex], [1.0])
       return
     }
@@ -248,12 +256,21 @@ export class BoardScene {
       playPlace()
     }
     this._syncSelectionUI()
+    this._tutorialHooks?.onTileSelected?.(tile.cellIndex, this.selectedTiles.size)
   }
 
   private _confirmingLeave = false
 
   private _onKeyDown = (e: KeyboardEvent): void => {
     if (this._menuOpen || this._setupOpen || this._completionOpen || this._confirmingLeave || this._investigationOpen) return
+    if (this._tutorialActive) {
+      // During tutorial, only allow Enter for confirming actions (Esc is blocked)
+      if (e.key === 'Enter' && this.selectedTiles.size > 0) {
+        const result = this.actionPanel.getActionProbs()
+        if (result) this._handleConfirm(result.actions, result.probs)
+      }
+      return
+    }
     if (e.key === 'Escape') {
       if (this.stratGen && this.stratGen.progress.assigned > 0) {
         this._confirmLeave()
@@ -360,6 +377,14 @@ export class BoardScene {
           return
         }
 
+        case 'tutorial': {
+          await this._runTutorial()
+          this._menuOpen = true
+          this.controls.autoRotate = true
+          this.controls.autoRotateSpeed = 0.3
+          continue
+        }
+
         case 'strategy-investigation': {
           const token = this._sessionToken
           const loaded = await loadPolicyFromFile()
@@ -448,7 +473,8 @@ export class BoardScene {
         dropCells.delete(this.stratGen.lastCollisionIndex)
       }
       this._updateStrategyView(dropCells)
-      if (complete) this._showCompletionFlow()
+      this._tutorialHooks?.onActionConfirmed?.()
+      if (complete && !this._tutorialActive) this._showCompletionFlow()
     } catch (err) {
       console.error('Strategy action error:', err)
     }
@@ -640,6 +666,128 @@ export class BoardScene {
     a.download = `policy_${this.stratGen.rows}x${this.stratGen.cols}_p${this.stratGen.player}.json`
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  // ── Tutorial ────────────────────────────────────────────────────────────
+
+  private async _runTutorial(): Promise<void> {
+    const adapter: TutorialSceneAdapter = {
+      getCanvasRect: () => this.renderer.domElement.getBoundingClientRect(),
+      getActionPanelRect: () => {
+        const el = document.querySelector('[data-tutorial="action-panel"]')
+        return el?.getBoundingClientRect() ?? null
+      },
+      getInfoPanelRect: () => {
+        const el = document.querySelector('[data-tutorial="info-panel"]')
+        return el?.getBoundingClientRect() ?? null
+      },
+      getTileScreenRect: (cellIndex: number) => {
+        if (!this.board) return null
+        const tile = this.board.tileByIndex(cellIndex)
+        if (!tile) return null
+        const vec = new THREE.Vector3()
+        vec.setFromMatrixPosition(tile.group.matrixWorld)
+        vec.project(this.camera)
+        const rect = this.renderer.domElement.getBoundingClientRect()
+        const x = (vec.x * 0.5 + 0.5) * rect.width + rect.left
+        const y = (-vec.y * 0.5 + 0.5) * rect.height + rect.top
+        return new DOMRect(x - 45, y - 45, 90, 90)
+      },
+      forceStartStrategy: async (rows: number, cols: number, player: number) => {
+        this._rebuildBoard(rows, cols)
+        const infoOps = await InfoStateOps.create(rows, cols)
+        this.stratGen = new StrategyGenerator(infoOps, { rows, cols, player, perfectRecall: false })
+        this.actionPanel.show()
+        this.infoPanel.show()
+        this._updateStrategyView()
+      },
+      autoCompleteStrategy: () => {
+        if (!this.stratGen) return
+        while (!this.stratGen.isComplete) {
+          this.stratGen.iterateBoard('r')
+        }
+        this._clearSelection()
+        this._updateStrategyView()
+      },
+      hasCollision: () => {
+        return this.stratGen?.lastCollisionIndex !== null && this.stratGen?.lastCollisionIndex !== undefined
+      },
+      isStrategyComplete: () => {
+        return this.stratGen?.isComplete ?? false
+      },
+      getContainer: () => this.container,
+      runInvestigation: async () => {
+        if (!this.stratGen) return
+        const policy = this.stratGen.policy
+        const config = {
+          rows: this.stratGen.rows,
+          cols: this.stratGen.cols,
+          player: this.stratGen.player,
+          perfectRecall: this.stratGen.perfectRecall,
+        }
+        const infoOps = await InfoStateOps.create(config.rows, config.cols)
+        this._investigationOpen = true
+        this._investigationView = new InvestigationView(this.container)
+        try {
+          await this._investigationView.run(policy, config, infoOps)
+        } finally {
+          this._investigationView?.dispose()
+          this._investigationView = null
+          this._investigationOpen = false
+        }
+      },
+      closeInvestigation: () => {
+        this._investigationView?.dispose()
+        this._investigationView = null
+        this._investigationOpen = false
+      },
+      setTutorialHooks: (hooks: TutorialHooks | null) => {
+        this._tutorialHooks = hooks
+      },
+      setTutorialActive: (active: boolean) => {
+        this._tutorialActive = active
+      },
+      setOrbitEnabled: (enabled: boolean) => {
+        this.controls.enabled = enabled
+      },
+      prefillSetup: (rows: number, cols: number, _player: number) => {
+        const rowsInput = document.querySelector('#sg-rows') as HTMLInputElement | null
+        const colsInput = document.querySelector('#sg-cols') as HTMLInputElement | null
+        if (rowsInput) rowsInput.value = String(rows)
+        if (colsInput) colsInput.value = String(cols)
+      },
+      showSetupPanel: () => {
+        // Show the setup overlay without blocking (for tutorial display only)
+        const overlay = this.setupPanel as unknown as { overlay: HTMLDivElement }
+        if (overlay.overlay) overlay.overlay.style.display = 'flex'
+      },
+      hideSetupPanel: () => {
+        const overlay = this.setupPanel as unknown as { overlay: HTMLDivElement }
+        if (overlay.overlay) overlay.overlay.style.display = 'none'
+      },
+    }
+
+    const engine = new TutorialEngine(adapter, this.container)
+    await engine.run()
+
+    // Clean up after tutorial: return to menu state
+    this._tutorialActive = false
+    this._tutorialHooks = null
+    this.actionPanel.hide()
+    this.infoPanel.hide()
+    this._clearSelection()
+    for (const el of this.probLabels.values()) el.remove()
+    this.probLabels.clear()
+    this.stratGen = null
+
+    // Close investigation if still open
+    if (this._investigationOpen) {
+      this._investigationView?.dispose()
+      this._investigationView = null
+      this._investigationOpen = false
+    }
+
+    this._rebuildBoard(BOARD_ROWS, BOARD_COLS)
   }
 
   private _onResize = (): void => {

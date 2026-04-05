@@ -79,6 +79,7 @@ export class InvestigationView {
     topBar.appendChild(fitBtn)
 
     const exportBtn = this._makeBtn('Export SVG', MAUVE_DARK, '#fff')
+    exportBtn.setAttribute('data-tutorial', 'export-btn')
     exportBtn.addEventListener('click', () => {
       if (!this.root) return
       const svg = exportTreeSvg(this.root, this.rows, this.cols, DEFAULT_LAYOUT)
@@ -91,6 +92,7 @@ export class InvestigationView {
 
     // ── Depth control ──
     const depthWrap = document.createElement('div')
+    depthWrap.setAttribute('data-tutorial', 'depth-slider')
     depthWrap.style.cssText = `display: flex; align-items: center; gap: 6px;`
 
     const depthLabel = document.createElement('span')
@@ -183,6 +185,7 @@ export class InvestigationView {
 
     // Detail sidebar
     this.detailEl = document.createElement('div')
+    this.detailEl.setAttribute('data-tutorial', 'sidebar')
     this.detailEl.style.cssText = `
       width: ${SIDEBAR_WIDTH}px; flex-shrink: 0; overflow-y: auto;
       border-left: 1px solid ${MAUVE_LIGHT}; padding: 16px;

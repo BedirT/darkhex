@@ -377,6 +377,50 @@ export function playCollision(): void {
   osc.stop(now + 0.08)
 }
 
+// ── Page turn (tutorial step advance) ─────────────────────────────────────
+
+/**
+ * Soft, breathy swish — like turning a page in a book.
+ * Very quiet to avoid competing with board sounds.
+ */
+export function playPageTurn(): void {
+  const c = ctx()
+  if (c.state !== 'running') return
+  const now = c.currentTime
+
+  const master = c.createGain()
+  master.gain.setValueAtTime(0.06, now)
+  master.connect(c.destination)
+
+  const dur = 0.08
+  const noiseLen = Math.ceil(c.sampleRate * dur)
+  const noiseBuf = c.createBuffer(1, noiseLen, c.sampleRate)
+  const noiseData = noiseBuf.getChannelData(0)
+  for (let i = 0; i < noiseLen; i++) {
+    const env = Math.sin((i / noiseLen) * Math.PI)
+    noiseData[i] = (Math.random() * 2 - 1) * env
+  }
+
+  const noise = c.createBufferSource()
+  noise.buffer = noiseBuf
+
+  const filter = c.createBiquadFilter()
+  filter.type = 'highpass'
+  filter.frequency.setValueAtTime(800, now)
+  filter.frequency.exponentialRampToValueAtTime(2500, now + dur)
+  filter.Q.setValueAtTime(0.5, now)
+
+  const noiseGain = c.createGain()
+  noiseGain.gain.setValueAtTime(0.8, now)
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + dur)
+
+  noise.connect(filter)
+  filter.connect(noiseGain)
+  noiseGain.connect(master)
+  noise.start(now)
+  noise.stop(now + dur)
+}
+
 // ── Celebration chime (strategy complete) ──────────────────────────────────
 
 /**

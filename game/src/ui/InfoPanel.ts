@@ -21,6 +21,7 @@ export class InfoPanel {
 
   constructor(parent: HTMLElement) {
     this.container = document.createElement('div')
+    this.container.setAttribute('data-tutorial', 'info-panel')
     this.container.style.cssText = `
       display: none; position: fixed; top: 12px; left: 12px; right: 12px;
       background: ${CREAM}; border: 2px solid ${MAUVE_LIGHT}; border-radius: 12px;

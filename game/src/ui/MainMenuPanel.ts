@@ -10,7 +10,7 @@ const TEXT_MUTED = '#8a7070'
 const SHADOW = '0 8px 32px rgba(100, 60, 60, 0.18), 0 2px 8px rgba(100, 60, 60, 0.10)'
 const RADIUS = '14px'
 
-export type MenuChoice = 'strategy-generator' | 'strategy-investigation'
+export type MenuChoice = 'strategy-generator' | 'strategy-investigation' | 'tutorial'
 
 interface MenuItem {
   id: MenuChoice | null
@@ -43,6 +43,7 @@ export class MainMenuPanel {
     `
 
     const panel = document.createElement('div')
+    panel.setAttribute('data-tutorial', 'menu-panel')
     panel.style.cssText = `
       background: ${CREAM}; border-radius: ${RADIUS}; padding: 36px 40px;
       min-width: 360px; max-width: 420px;
@@ -64,7 +65,47 @@ export class MainMenuPanel {
     subtitle.style.cssText = `margin: 0 0 24px; color: ${TEXT_MUTED}; font-size: 15px; font-weight: 400;`
     panel.appendChild(subtitle)
 
-    // ── Divider ────────────────────────────────────────────────────────
+    // ── Tutorial button ────────────────────���─────────────────────────
+    const tutBtn = document.createElement('button')
+    tutBtn.setAttribute('data-tutorial', 'btn-tutorial')
+    tutBtn.style.cssText = `
+      display: flex; flex-direction: column; align-items: flex-start;
+      width: 100%; padding: 14px 20px; margin-bottom: 16px;
+      font-family: ${FONT}; background: #fff8ee;
+      border: 2px dashed ${MAUVE_LIGHT}; border-radius: 10px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    `
+    const tutTitle = document.createElement('span')
+    tutTitle.style.cssText = `
+      font-size: 15px; font-weight: 800; color: ${MAUVE_DARK};
+      display: flex; align-items: center; gap: 6px; width: 100%;
+      justify-content: space-between;
+    `
+    tutTitle.innerHTML = 'Take the Guided Tutorial <span style="font-size: 16px; opacity: 0.6;">\u2192</span>'
+    tutBtn.appendChild(tutTitle)
+    const tutSub = document.createElement('span')
+    tutSub.textContent = 'Learn the basics in 5 minutes'
+    tutSub.style.cssText = `font-size: 13px; font-weight: 400; color: ${TEXT_MUTED}; margin-top: 2px;`
+    tutBtn.appendChild(tutSub)
+    tutBtn.addEventListener('mouseover', () => {
+      tutBtn.style.background = '#fff0d8'
+      tutBtn.style.borderColor = MAUVE_DARK
+      playThock()
+    })
+    tutBtn.addEventListener('mouseout', () => {
+      tutBtn.style.background = '#fff8ee'
+      tutBtn.style.borderColor = MAUVE_LIGHT
+    })
+    tutBtn.addEventListener('click', () => {
+      ensureAudioReady()
+      playPlace()
+      const resolve = this.resolve
+      this.hide()
+      resolve?.('tutorial')
+    })
+    panel.appendChild(tutBtn)
+
+    // ── Divider ────────────────────────��───────────────────────────────
     const hr = document.createElement('hr')
     hr.style.cssText = `border: none; border-top: 1px solid ${MAUVE_LIGHT}; margin: 0 0 20px;`
     panel.appendChild(hr)
@@ -75,6 +116,7 @@ export class MainMenuPanel {
 
     for (const item of MENU_ITEMS) {
       const btn = document.createElement('button')
+      if (item.id) btn.setAttribute('data-tutorial', `btn-${item.id}`)
 
       if (item.enabled) {
         btn.style.cssText = `

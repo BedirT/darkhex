@@ -65,7 +65,7 @@ export class MainMenuPanel {
     subtitle.style.cssText = `margin: 0 0 24px; color: ${TEXT_MUTED}; font-size: 15px; font-weight: 400;`
     panel.appendChild(subtitle)
 
-    // ── Tutorial button ────────────────────���─────────────────────────
+    // ── Tutorial button ───────────────────────────────────────────────
     const tutBtn = document.createElement('button')
     tutBtn.setAttribute('data-tutorial', 'btn-tutorial')
     tutBtn.style.cssText = `

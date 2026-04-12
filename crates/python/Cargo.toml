@@ -1,0 +1,17 @@
+[package]
+name = "darkhex-python"
+version = "0.1.0"
+edition = "2021"
+description = "PyO3 bindings for darkhex-core"
+license = "MIT"
+
+[lib]
+name = "_engine"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+darkhex-core = { path = "../core" }
+pyo3 = "0.23"
+
+[features]
+extension-module = ["pyo3/extension-module"]

@@ -6,11 +6,8 @@
 .flake8
 .vscode
 .isort.cfg
-*.yaml
 
 tmp/
-build/
-venv/
 old_files/
 
 # Python
@@ -19,5 +16,37 @@ old_files/
 *.pyc
 __pycache__/
 
-# Distribution
+# Rust
+target/
+*.so
+*.dylib
+*.pyd
+
+# Build / Distribution
+build/
 dist/
+
+# Data / Docs
+internal_docs/
+darkhex/data/
+
+# Claude Code (ephemeral / machine-specific — covers nested subdirs too)
+**/.claude/logs/
+**/.claude/skills/
+**/.claude/settings.local.json
+
+# Debug symbols
+*.dSYM/
+
+# Node
+node_modules/
+
+# WASM build output
+game/pkg/
+
+# Temp
+temp/
+
+# Environment
+.env
+.env.*

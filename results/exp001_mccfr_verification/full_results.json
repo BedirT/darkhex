@@ -1,0 +1,119 @@
+[
+  {
+    "board": "2x2",
+    "iterations": 100,
+    "info_states_found": 39,
+    "info_states_ground_truth": 42,
+    "coverage_pct": 92.9,
+    "wall_time_s": 0.005,
+    "iters_per_sec": 19519
+  },
+  {
+    "board": "2x2",
+    "iterations": 1000,
+    "info_states_found": 42,
+    "info_states_ground_truth": 42,
+    "coverage_pct": 100.0,
+    "wall_time_s": 0.031,
+    "iters_per_sec": 32188
+  },
+  {
+    "board": "2x2",
+    "iterations": 10000,
+    "info_states_found": 42,
+    "info_states_ground_truth": 42,
+    "coverage_pct": 100.0,
+    "wall_time_s": 0.224,
+    "iters_per_sec": 44584
+  },
+  {
+    "board": "2x2",
+    "iterations": 100000,
+    "info_states_found": 42,
+    "info_states_ground_truth": 42,
+    "coverage_pct": 100.0,
+    "wall_time_s": 2.344,
+    "iters_per_sec": 42668
+  },
+  {
+    "board": "3x2",
+    "iterations": 1000,
+    "info_states_found": 295,
+    "info_states_ground_truth": 410,
+    "coverage_pct": 72.0,
+    "wall_time_s": 0.041,
+    "iters_per_sec": 24655
+  },
+  {
+    "board": "3x2",
+    "iterations": 10000,
+    "info_states_found": 351,
+    "info_states_ground_truth": 410,
+    "coverage_pct": 85.6,
+    "wall_time_s": 0.418,
+    "iters_per_sec": 23914
+  },
+  {
+    "board": "3x2",
+    "iterations": 50000,
+    "info_states_found": 386,
+    "info_states_ground_truth": 410,
+    "coverage_pct": 94.1,
+    "wall_time_s": 2.104,
+    "iters_per_sec": 23763
+  },
+  {
+    "board": "3x2",
+    "iterations": 100000,
+    "info_states_found": 396,
+    "info_states_ground_truth": 410,
+    "coverage_pct": 96.6,
+    "wall_time_s": 4.178,
+    "iters_per_sec": 23936
+  },
+  {
+    "board": "3x3",
+    "iterations": 1000,
+    "info_states_found": 3071,
+    "info_states_ground_truth": 12556,
+    "coverage_pct": 24.5,
+    "wall_time_s": 0.078,
+    "iters_per_sec": 12802
+  },
+  {
+    "board": "3x3",
+    "iterations": 10000,
+    "info_states_found": 7359,
+    "info_states_ground_truth": 12556,
+    "coverage_pct": 58.6,
+    "wall_time_s": 0.662,
+    "iters_per_sec": 15096
+  },
+  {
+    "board": "3x3",
+    "iterations": 50000,
+    "info_states_found": 9470,
+    "info_states_ground_truth": 12556,
+    "coverage_pct": 75.4,
+    "wall_time_s": 3.071,
+    "iters_per_sec": 16284
+  },
+  {
+    "board": "3x3",
+    "iterations": 100000,
+    "info_states_found": 10134,
+    "info_states_ground_truth": 12556,
+    "coverage_pct": 80.7,
+    "wall_time_s": 6.024,
+    "iters_per_sec": 16599
+  },
+  {
+    "board": "3x3",
+    "iterations": 500000,
+    "info_states_found": 11308,
+    "info_states_ground_truth": 12556,
+    "coverage_pct": 90.1,
+    "wall_time_s": 31.026,
+    "iters_per_sec": 16116
+  }
+]

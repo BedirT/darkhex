@@ -1,29 +1,27 @@
 # DarkHex
 
-Research toolkit for solving **Dark Hex** — the imperfect-information variant of the board game [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)) — using game-theoretic algorithms. Targets publishable Nash equilibrium bounds.
+Research toolkit for solving **Dark Hex** - the imperfect-information variant of the board game [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)) - using game-theoretic algorithms. Targets publishable Nash equilibrium bounds on 4x3 board.
 
-In Dark Hex, players cannot see their opponent's stones. When a player attempts to place a stone on a cell already occupied by the opponent, a *collision* occurs — the stone is not placed, but the player discovers the opponent's hidden stone. Four collision variants are supported (Classic, Abrupt, Noisy, Flash).
+In Dark Hex, players cannot see their opponent's stones. When a player attempts to place a stone on a cell already occupied by the opponent, a *collision* occurs - the stone is not placed, but the player discovers the opponent's hidden stone. Four collision variants are supported (Classic, Abrupt, Noisy, Flash).
 
 ## Architecture
 
 The system has three layers:
 
-- **Rust core** (`crates/core/`) — High-performance game engine with union-find win detection, move generation, and tabular solvers (MCCFR, exploitability, pONE, SIP/SIP+).
-- **Python layer** (`darkhex/`) — Neural algorithms (Deep CFR, DREAM, ESCHER), experiments, and paper figure generation. Calls into Rust via [PyO3](https://pyo3.rs/) / [maturin](https://www.maturin.rs/).
-- **Web visualization** (`game/`) — DSaGe (Dark Hex Strategy Generator), a Three.js isometric board viewer with toon cel-shading for interactive strategy exploration.
+- **Rust core** (`crates/core/`) - High-performance game engine with union-find win detection, move generation, and tabular solvers (MCCFR, exploitability, pONE, SIP/SIP+).
+- **Python layer** (`darkhex/`) - Neural algorithms (Deep CFR, DREAM, ESCHER), experiments, and paper figure generation. Calls into Rust via [PyO3](https://pyo3.rs/) / [maturin](https://www.maturin.rs/).
+- **Web visualization** (`game/`) - DSaGe (Dark Hex Strategy Generator), a Three.js isometric board viewer with toon cel-shading for interactive strategy exploration.
 
-## DSaGe — Web Visualization
+## DSaGe - Web Visualization
 
 DSaGe is an interactive web tool for building and investigating Dark Hex strategies. It runs entirely in the browser using WebAssembly compiled from the Rust game engine.
 
-<p align="center">
-  <video src="docs/screenshots/dsage-demo.mp4" width="600" autoplay loop muted playsinline></video>
-</p>
+https://github.com/user-attachments/assets/5683ff51-47a1-4409-af95-dca768bc6db3
 
 **Features:**
 - Isometric hex board with toon cel-shading and post-processing outlines
-- **Strategy Generator** — manually build complete strategies by walking through every reachable info state, assigning action probabilities
-- **Strategy Investigation** — browse completed strategies, step through info states, view assigned probabilities on the board
+- **Strategy Generator** - manually build complete strategies by walking through every reachable info state, assigning action probabilities
+- **Strategy Investigation** - browse completed strategies, step through info states, view assigned probabilities on the board
 - Guided tutorial, SVG tree export, MCCFR policy import, keyboard navigation
 
 ## Algorithms

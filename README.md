@@ -1,81 +1,124 @@
 # DarkHex
 
-Dark Hex is the imperfect information version of the game Hex. This game has a really scarce work on it. In this repository I am including an implementation of the game along with some algorithms implemented specifically for DarkHex. Also I included the results of some of the experiments.
+Research toolkit for solving **Dark Hex** — the imperfect-information variant of the board game [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)) — using game-theoretic algorithms. Targets publishable Nash equilibrium bounds.
 
-For details on DarkHex and any of the algorithms used as well as the experiments please check my thesis [-link-]().
+In Dark Hex, players cannot see their opponent's stones. When a player attempts to place a stone on a cell already occupied by the opponent, a *collision* occurs — the stone is not placed, but the player discovers the opponent's hidden stone. Four collision variants are supported (Classic, Abrupt, Noisy, Flash).
 
-- [What is Hex](<https://en.wikipedia.org/wiki/Hex_(board_game)>)
-- [Dark-Hex Open Spiel Implementation](https://github.com/deepmind/open_spiel/blob/master/open_spiel/games/dark_hex.h)
-- [Sample Game](Sample_game.md)
+## Architecture
 
-## Implementations
+The system has three layers:
 
-- [x] pONE
-- [x] Vanilla CFR
-- [x] FSI-CFR
-- [x] Backward Induction Best Response
-- [ ] AlphaZero Approximate Best Response
-- [ ] CFR+
-- [ ] MCCFR
-- [ ] NFSP
-- [ ] Deep CFR
+- **Rust core** (`crates/core/`) — High-performance game engine with union-find win detection, move generation, and tabular solvers (MCCFR, exploitability, pONE, SIP/SIP+).
+- **Python layer** (`darkhex/`) — Neural algorithms (Deep CFR, DREAM, ESCHER), experiments, and paper figure generation. Calls into Rust via [PyO3](https://pyo3.rs/) / [maturin](https://www.maturin.rs/).
+- **Web visualization** (`game/`) — DSaGe (Dark Hex Strategy Generator), a Three.js isometric board viewer with toon cel-shading for interactive strategy exploration.
 
-### Installation
+## DSaGe — Web Visualization
 
-The library is uploaded on Pypi and can be installed using pip. Before pip called make sure you have the following packages installed:
+DSaGe is an interactive web tool for building and investigating Dark Hex strategies. It runs entirely in the browser using WebAssembly compiled from the Rust game engine.
 
-- [Python 3.6](https://www.python.org/downloads/)
-- [PyGObject - bindings for GTK3](https://pypi.org/project/pygobject/)
-- [Graphviz](https://www.graphviz.org/)
-- [GCC](https://gcc.gnu.org/)
-- [Libcairo](https://www.cairographics.org/)
+<p align="center">
+  <video src="docs/screenshots/dsage-demo.mp4" width="600" autoplay loop muted playsinline></video>
+</p>
 
-They are mostly required for graph drawing and setup reasons. Please make sure you have these packages installed before installing the library.
+**Features:**
+- Isometric hex board with toon cel-shading and post-processing outlines
+- **Strategy Generator** — manually build complete strategies by walking through every reachable info state, assigning action probabilities
+- **Strategy Investigation** — browse completed strategies, step through info states, view assigned probabilities on the board
+- Guided tutorial, SVG tree export, MCCFR policy import, keyboard navigation
 
-#### For Debian / Ubuntu
+## Algorithms
 
-```bash
-sudo apt-get install libgirepository1.0-dev gcc libcairo2-dev pkg-config gir1.2-gtk-3.0 graphviz
-```
+### Tabular (Rust)
 
-#### For MacOS
+| Algorithm | Description |
+|-----------|-------------|
+| External Sampling MCCFR | Monte Carlo CFR with external sampling |
+| Outcome Sampling MCCFR | Monte Carlo CFR with outcome sampling |
+| Best Response / Exploitability | Exact best response computation for exploitability measurement |
+| pONE | Belief-space precomputation of probability-1 win states |
+| SIP / SIP+ | Policy simplification (deterministic / fractionized) |
 
-```bash
-brew install gobject-introspection graphviz cairo pkg-config gtk+3 gcc
-```
+### Neural (Python + PyTorch)
 
-After installing the packages you can install the library using pypi.
+| Algorithm | Description |
+|-----------|-------------|
+| Deep CFR | External sampling CFR with neural value networks |
+| DREAM | Outcome sampling CFR with neural networks and optional Q-baseline |
+| ESCHER | Information-set-free neural CFR (value net + regret net + avg policy) |
 
-```bash
-pip install darkhex
-```
+## Prerequisites
 
-#### Setup from source using pip
+- [Rust](https://rustup.rs/) (stable)
+- [Python 3.12+](https://www.python.org/)
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/) (for DSaGe web app)
+- [Node.js](https://nodejs.org/) (for DSaGe web app)
 
-Installing from source would be helpful if you wanted a custom version of the library / helping with development. Make sure you have the packages above installed.
-
-##### Virtual Environment
-
-We recommend using a virtual environment for the development.
-
-E.g. for Ubuntu or Debian:
+## Getting Started
 
 ```bash
-sudo apt-get install virtualenv python3-virtualenv
-virtualenv venv
-source venv/bin/activate
+# Install Python dependencies
+uv sync
+
+# Build Rust extension (debug mode, fast compile)
+make dev
+
+# Run all tests
+make test
 ```
 
-Rest of the installation is just installing python requirements.
+## Commands
 
-E.g. for Ubuntu or Debian:
+| Command | Description |
+|---------|-------------|
+| `make install` | Install Python dependencies via uv |
+| `make dev` | Build Rust extension (debug mode) |
+| `make build` | Build Rust extension (release mode) |
+| `make test` | Run all tests (Rust + Python) |
+| `make test-rust` | Run Rust unit tests only |
+| `make test-python` | Run Python integration tests only |
+| `make lint` | Lint Python code (ruff) |
+| `make typecheck` | Type check Python code (pyright) |
+| `make check` | Full verification (lint + all tests) |
+| `make game` | Build WASM + launch DSaGe web app |
+| `make fmt` | Format Rust code |
+
+## Running DSaGe
 
 ```bash
-# Install the libraries listed above
-sudo apt-get install libgirepository1.0-dev gcc libcairo2-dev pkg-config gir1.2-gtk-3.0 graphviz
+# Build WASM and start dev server
+make game
 
-# Install the python packages
-pip install -r requirements.txt
+# Or step by step:
+make wasm              # Build WASM package
+cd game && npm run dev # Start Vite dev server
 ```
 
-**Update PYTHONPATH on your .bashrc or .zshrc file (or .venv/bin/activate)**
+Then open `http://localhost:5173` in your browser.
+
+## Project Structure
+
+```
+├── crates/
+│   ├── core/          # Game engine + tabular solvers (Rust)
+│   ├── python/        # PyO3 bindings (maturin cdylib)
+│   └── wasm/          # WebAssembly target for DSaGe
+├── darkhex/           # Neural algorithms + experiments (Python)
+│   └── algorithms/    # Deep CFR, DREAM, ESCHER
+├── game/              # DSaGe web app (Three.js + TypeScript + Vite)
+├── tests/             # Python integration tests
+├── docs/              # Documentation
+└── results/           # Experiment outputs
+```
+
+## References
+
+- Zinkevich, Johanson, Bowling, & Piccione (2007). "Regret Minimization in Games with Incomplete Information." *NeurIPS*.
+- Lanctot, Waugh, Zinkevich, & Bowling (2009). "Monte Carlo Sampling for Regret Minimization in Extensive Games." *NeurIPS*.
+- Brown, Lerer, Gross, & Sandholm (2019). "Deep Counterfactual Regret Minimization." *ICML*.
+- Steinberger, Lerer, & Brown (2020). "DREAM: Deep Regret minimization with Advantage baselines and Model-free learning."
+- McAleer, Wang, Lanier, Baldi, & Fox (2023). "ESCHER: Eschewing Importance Sampling in Games by Computing Histories of Expected Rewards." *ICLR*.
+
+## License
+
+MIT
